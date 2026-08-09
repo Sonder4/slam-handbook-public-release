@@ -26,10 +26,20 @@
 | bundle adjustment (BA) | 束调整（BA） | |
 | visual odometry (VO) | 视觉里程计（VO） | |
 | point cloud | 点云 | |
+| dense map representation | 稠密地图表示 | |
+| range sensor / range sensing | 范围传感器 / 范围感知 | |
 | occupancy map | 占据地图 | |
+| occupancy grid | 占据栅格 | |
+| implicit surface | 隐式表面 | |
 | signed distance field (SDF) | 有符号距离场（SDF） | |
+| Euclidean Signed Distance Field (ESDF) | 欧氏有符号距离场（ESDF） | |
+| Truncated Signed Distance Function (TSDF) | 截断有符号距离函数（TSDF） | |
 | surfel | surfel | 作为技术名保留英文。 |
 | voxel | 体素 | |
+| mesh | 网格 | |
+| Gaussian Process Occupancy Map (GPOM) | 高斯过程占据地图（GPOM） | |
+| Gaussian process implicit surface (GPIS) | 高斯过程隐式表面（GPIS） | |
+| Hilbert map | Hilbert map | 作为方法名保留英文。 |
 | simultaneous localization | 同步定位 | 不作“同时定位”。 |
 | differentiable optimization | 可微优化 | |
 | automatic differentiation | 自动微分 | |

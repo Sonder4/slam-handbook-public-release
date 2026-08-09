@@ -13,6 +13,7 @@ from pathlib import Path
 IMAGE_RE = re.compile(r"^!\[\]\(([^)]+)\)\s*$")
 CAPTION_RE = re.compile(r"^图\s+(\d+\.\d+)\b")
 ENGLISH_CAPTION_RE = re.compile(r"^Figure\s+\d+\.\d+\b")
+SUBFIGURE_LABEL_RE = re.compile(r"^\([a-z]\)\s*$", re.IGNORECASE)
 ENGLISH_FIGURE_REF_RE = re.compile(r"Figure\s+(?P<number>\d+\.\d+)\b")
 ENGLISH_FORMULA_REF_RE = re.compile(
     r"(?P<label>Equation\s*\(?\s*(?P<number>\d+\.\d+[a-z]?)\s*\)?)"
@@ -39,16 +40,31 @@ def display_formula_number(number: str) -> str:
     return f"式（{number}）"
 
 
+def following_caption_index(lines: list[str], start: int) -> tuple[int | None, list[str]]:
+    """Return the next caption candidate, retaining intervening subfigure labels."""
+    labels: list[str] = []
+    index = start
+    while index < len(lines):
+        candidate = lines[index].strip()
+        if not candidate:
+            index += 1
+            continue
+        if SUBFIGURE_LABEL_RE.match(candidate):
+            labels.append(candidate)
+            index += 1
+            continue
+        return index, labels
+    return None, labels
+
+
 def discover_figures(lines: list[str]) -> list[str]:
     figures: list[str] = []
     for index, line in enumerate(lines):
         if IMAGE_RE.match(line.strip()):
-            caption_index = index + 1
-            while caption_index < len(lines) and not lines[caption_index].strip():
-                caption_index += 1
+            caption_index, _ = following_caption_index(lines, index + 1)
             caption = (
                 CAPTION_RE.match(lines[caption_index].strip())
-                if caption_index < len(lines)
+                if caption_index is not None
                 else None
             )
             if caption:
@@ -196,12 +212,10 @@ def transform_chapter(
 
         image = IMAGE_RE.match(stripped)
         if image:
-            caption_index = index + 1
-            while caption_index < len(lines) and not lines[caption_index].strip():
-                caption_index += 1
+            caption_index, subfigure_labels = following_caption_index(lines, index + 1)
             caption = (
                 CAPTION_RE.match(lines[caption_index].strip())
-                if caption_index < len(lines)
+                if caption_index is not None
                 else None
             )
             if caption:
@@ -209,8 +223,10 @@ def transform_chapter(
                 output.extend([f'<a id="{anchor("fig", number)}" class="figure-anchor"></a>', ""])
             output.append(raw)
             if caption:
+                for label in subfigure_labels:
+                    output.extend(["", f"*{label}*"])
                 output.extend(["", f"*{lines[caption_index].strip()}*"])
-                index = caption_index + 1
+                index = caption_index + 1  # type: ignore[operator]
             else:
                 index += 1
             continue
@@ -311,13 +327,23 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
     for image_index, line in enumerate(body):
         if not IMAGE_RE.match(line.strip()):
             continue
-        caption_index = image_index + 1
-        while caption_index < len(body) and not body[caption_index].strip():
-            caption_index += 1
-        if caption_index < len(body):
+        caption_index, _ = following_caption_index(body, image_index + 1)
+        if caption_index is not None:
             caption = re.search(r"Figure\s+(\d+\.\d+)\b", body[caption_index])
             if caption and ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
                 local_figures.add(caption.group(1))
+    # Some PDF extraction orders a short figure caption before a display
+    # equation and its image (notably Figure 5.2). Treat it as a caption
+    # only when an image follows immediately in the extracted block.
+    for caption_index, line in enumerate(body):
+        caption = re.match(r"^Figure\s+(\d+\.\d+)\b", line.strip())
+        if not caption:
+            continue
+        if any(IMAGE_RE.match(candidate.strip()) for candidate in body[max(0, caption_index - 5) : caption_index]):
+            continue
+        lookahead = body[caption_index + 1 : caption_index + 9]
+        if any(IMAGE_RE.match(candidate.strip()) for candidate in lookahead):
+            local_figures.add(caption.group(1))
     local_formulas = set(discover_formulas("\n".join(body)))
 
     def replace_english_references(line: str) -> str:
@@ -364,20 +390,34 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
             if tagged:
                 output.extend([f'<a id="{anchor("eq", tagged.group(1).strip())}" class="equation-anchor"></a>', ""])
             output.extend(["$$", formula, "$$"])
+        elif (
+            (caption := re.match(r"^Figure\s+(\d+\.\d+)\b", stripped))
+            and caption.group(1) in local_figures
+            and not any(IMAGE_RE.match(line.strip()) for line in body[max(0, index - 5) : index])
+            and any(IMAGE_RE.match(line.strip()) for line in body[index + 1 : index + 9])
+        ):
+            output.extend(
+                [
+                    f'<a id="{anchor("fig", caption.group(1))}" class="figure-anchor"></a>',
+                    "",
+                    f"*{raw}*",
+                    "{ .figure-caption }",
+                    "",
+                ]
+            )
         elif IMAGE_RE.match(stripped):
             caption_match = None
-            caption_index = index + 1
-            while caption_index < len(body) and not body[caption_index].strip():
-                output.append("")
-                caption_index += 1
-            if caption_index < len(body) and ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
+            caption_index, subfigure_labels = following_caption_index(body, index + 1)
+            if caption_index is not None and ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
                 caption_match = re.search(r"Figure\s+(\d+\.\d+)", body[caption_index].strip())
             if caption_match:
                 output.extend([f'<a id="{anchor("fig", caption_match.group(1))}" class="figure-anchor"></a>', ""])
             output.append(raw)
             if caption_match:
+                for label in subfigure_labels:
+                    output.extend([f"*{label}*", ""])
                 output.extend([f"*{body[caption_index].strip()}*", "{ .figure-caption }", ""])
-                index = caption_index
+                index = caption_index  # type: ignore[assignment]
         else:
             output.extend([replace_english_references(raw), "{ .book-paragraph }", ""])
         index += 1

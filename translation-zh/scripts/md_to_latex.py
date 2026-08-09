@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 IMAGE_RE = re.compile(r"^!\[\]\(([^)]+)\)\s*$")
+TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
 TAG_RE = re.compile(r"\\tag\s*\{([^{}]+)\}")
 MATH_RE = re.compile(r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$")
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
@@ -91,6 +93,27 @@ def heading_command(level: int, title: str) -> str:
     return rf"\{command}{{{escape_text(title)}}}"
 
 
+def table_cells(row: str) -> list[str]:
+    """Parse a simple GitHub-flavored Markdown table row."""
+    cells = row.strip().strip("|").split("|")
+    return [cell.strip() for cell in cells]
+
+
+def latex_table(rows: list[list[str]]) -> list[str]:
+    """Render a compact, readable LaTeX table from Markdown rows."""
+    column_count = max(len(row) for row in rows)
+    widths = "".join("p{0.29\\linewidth}" for _ in range(column_count))
+    output = [r"\begin{center}", r"\small", rf"\begin{{tabular}}{{{widths}}}", r"\toprule"]
+    for index, row in enumerate(rows):
+        padded = row + [""] * (column_count - len(row))
+        cells = " & ".join(escape_text(cell) for cell in padded)
+        output.append(cells + r" \\")
+        if index == 0:
+            output.append(r"\midrule")
+    output.extend([r"\bottomrule", r"\end{tabular}", r"\end{center}", ""])
+    return output
+
+
 def convert_markdown(source: Path) -> str:
     lines = source.read_text(encoding="utf-8-sig").splitlines()
     output: list[str] = []
@@ -115,6 +138,33 @@ def convert_markdown(source: Path) -> str:
             output.append(heading_command(len(heading.group(1)), heading.group(2)))
             output.append("")
             index += 1
+            continue
+
+        if stripped.startswith("<div"):
+            # Web-only algorithm containers must not be emitted as raw HTML.
+            # Preserve their line structure in a compact LaTeX quotation instead.
+            output.extend([r"\begin{quote}", r"\small"])
+            index += 1
+            while index < len(lines) and lines[index].strip() != "</div>":
+                algorithm_line = lines[index].strip()
+                if algorithm_line:
+                    output.append(escape_text(algorithm_line) + r"\\")
+                index += 1
+            if index >= len(lines):
+                raise ValueError(f"Unclosed HTML container in {source} near line {index + 1}")
+            output.extend([r"\end{quote}", ""])
+            index += 1
+            continue
+
+        if TABLE_ROW_RE.match(stripped):
+            table_rows: list[list[str]] = []
+            while index < len(lines) and TABLE_ROW_RE.match(lines[index].strip()):
+                row = lines[index].strip()
+                if not TABLE_SEPARATOR_RE.match(row):
+                    table_rows.append(table_cells(row))
+                index += 1
+            if table_rows:
+                output.extend(latex_table(table_rows))
             continue
 
         if stripped == "$$":

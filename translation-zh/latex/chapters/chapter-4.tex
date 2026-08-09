@@ -69,21 +69,21 @@ BLO 是一个历史悠久且研究充分的问题 \textsuperscript{[1148, 517, 6
 \pmb {x} _ {t} = \Phi_ {t} (\pmb {x} _ {t - 1}; \pmb {y}), \quad t = 1, \dots , T,\tag{4.4}
 \end{equation}
 
-<div class="mineru-algorithm" style="white-space: pre-wrap; font-family:monospace;">
-算法 1 通过展开微分或隐式微分求解 BLO。
-
-1: 初始化：$y_{0}$，$x_{0}$。
-2: 当未收敛（$\|y_{k+1}-y_{k}\|$ 足够大）时：
-3: 使用通用优化器 O 经 T 步求解（4.2b），获得 $x_{T}$。
-4: 按下列方式高效估计式（4.3）的上层梯度：
-5: 展开微分：通过式（4.7）中的 AutoDiff，计算 $\hat{\nabla}_{y_{k}}U=\frac{\partial U(y_{k},x_{T})}{\partial y_{k}}$。
-6: 隐式微分（算法 2）：计算
-$\hat{\nabla}_{y_{k}}\mathcal{U}=\frac{\partial\mathcal{U}}{\partial y_{k}}\bigg|_{x_{T}}+\frac{\partial\mathcal{U}}{\partial x^{*}}\frac{\partial x^{*}}{\partial y_{k}}\bigg|_{x_{T}}$，
-其中隐式导数 $\frac{\partial x^{*}}{\partial y_{k}}$ 可通过求解由下层最优性条件导出的方程获得（后续各节将作概述）。
-7:
-8: 使用 $\hat{\nabla}_{y_{k}}U$，通过梯度计算 $y_{k+1}$。
-9: 结束循环
-</div>
+\begin{quote}
+\small
+算法 1 通过展开微分或隐式微分求解 BLO。\\
+1: 初始化：$y_{0}$，$x_{0}$。\\
+2: 当未收敛（$\|y_{k+1}-y_{k}\|$ 足够大）时：\\
+3: 使用通用优化器 O 经 T 步求解（4.2b），获得 $x_{T}$。\\
+4: 按下列方式高效估计式（4.3）的上层梯度：\\
+5: 展开微分：通过式（4.7）中的 AutoDiff，计算 $\hat{\nabla}_{y_{k}}U=\frac{\partial U(y_{k},x_{T})}{\partial y_{k}}$。\\
+6: 隐式微分（算法 2）：计算\\
+$\hat{\nabla}_{y_{k}}\mathcal{U}=\frac{\partial\mathcal{U}}{\partial y_{k}}\bigg|_{x_{T}}+\frac{\partial\mathcal{U}}{\partial x^{*}}\frac{\partial x^{*}}{\partial y_{k}}\bigg|_{x_{T}}$，\\
+其中隐式导数 $\frac{\partial x^{*}}{\partial y_{k}}$ 可通过求解由下层最优性条件导出的方程获得（后续各节将作概述）。\\
+7:\\
+8: 使用 $\hat{\nabla}_{y_{k}}U$，通过梯度计算 $y_{k+1}$。\\
+9: 结束循环\\
+\end{quote}
 
 其中，$\Phi _ { t }$ 表示第 $t$ 步中基于下层问题的更新方案，$T$ 为迭代次数。一种更新方案是梯度下降：
 
@@ -171,21 +171,21 @@ $\hat{\nabla}_{y_{k}}\mathcal{U}=\frac{\partial\mathcal{U}}{\partial y_{k}}\bigg
 
 其中，$\textstyle { \frac { \partial { \mathcal { L } } } { \partial { \boldsymbol { x } } } } \cdot { \boldsymbol { q } }$ 是一个标量。这意味着无需显式计算或存储 Hessian 矩阵 $H$。算法 2 总结了通过线性系统计算隐式微分的过程；使用共轭梯度法的算法与之类似。
 
-<div class="mineru-algorithm" style="white-space: pre-wrap; font-family:monospace;">
-算法 2 通过线性系统计算隐式微分。
-
-1: 输入：当前上层变量 $y$ 和最优下层变量 $x^{*}$。
-2: 初始化：$k = 1$，学习率 $\eta$。
-3: 当未收敛（$\|q_{k}-q_{k-1}\|$ 足够大）时：
-4: 执行梯度下降：
-$q_{k}=q_{k-1}-\eta(Hq_{k-1}-v)$，式（4.16），
-其中 $Hq_{k-1}$ 通过高效 Hessian-向量积计算。
-5: 结束循环
-6: 令 $q=q_{k}$。
-7: 按式（4.3）计算 $\nabla_{y}U$：
-$\nabla_{y}U=\frac{\partial U(y,x^{*})}{\partial y}-\underbrace{\left(\frac{\partial^{2}L(x^{*}(y),y)}{\partial y\partial x^{*}(y)}\cdot q\right)^{\mathsf{T}}} _{(H_{yx}\cdot q)^{\mathsf{T}}}$，式（4.17），
-其中 $H_{yx}\cdot q$ 也可通过 Hessian-向量积高效计算。
-</div>
+\begin{quote}
+\small
+算法 2 通过线性系统计算隐式微分。\\
+1: 输入：当前上层变量 $y$ 和最优下层变量 $x^{*}$。\\
+2: 初始化：$k = 1$，学习率 $\eta$。\\
+3: 当未收敛（$\|q_{k}-q_{k-1}\|$ 足够大）时：\\
+4: 执行梯度下降：\\
+$q_{k}=q_{k-1}-\eta(Hq_{k-1}-v)$，式（4.16），\\
+其中 $Hq_{k-1}$ 通过高效 Hessian-向量积计算。\\
+5: 结束循环\\
+6: 令 $q=q_{k}$。\\
+7: 按式（4.3）计算 $\nabla_{y}U$：\\
+$\nabla_{y}U=\frac{\partial U(y,x^{*})}{\partial y}-\underbrace{\left(\frac{\partial^{2}L(x^{*}(y),y)}{\partial y\partial x^{*}(y)}\cdot q\right)^{\mathsf{T}}} _{(H_{yx}\cdot q)^{\mathsf{T}}}$，式（4.17），\\
+其中 $H_{yx}\cdot q$ 也可通过 Hessian-向量积高效计算。\\
+\end{quote}
 
 \textbf{近似。} 隐式微分实现复杂，但有一种近似方法是忽略隐式成分，仅使用直接部分 $\hat{\nabla}_{\pmb{y}} \mathcal{U} \approx \left.\frac{\partial \mathcal{U}}{\partial \pmb{y}}\right|_{\pmb{x}_T}$。这等价于在上层问题中将下层优化得到的解 $\pmb{x}_T$ 视为常数。该近似效率更高，但会引入误差项
 
