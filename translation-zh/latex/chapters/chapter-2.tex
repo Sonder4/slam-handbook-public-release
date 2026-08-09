@@ -10,12 +10,12 @@
 
 \subsection{流形上的优化}
 
-在某些机器人问题中，可以使用向量值未知量；但在大多数实际场景中，我们必须处理三维旋转以及其他非向量流形。粗略地说，流形是一个拓扑闭合的曲面（例如圆的周长或球面）；重要的是，在每个点附近，流形局部上都类似于欧氏空间。处理流形需要更精密的数学工具，以考虑其特殊结构。本节讨论如何在流形上执行优化，这将在上一章向量空间优化框架的基础上展开。作为示例，图 2.1 对球面流形 $\mathcal M$ 及其切空间 $T_x\mathcal M$ 进行了可视化；切空间可作为 $x\in\mathcal M$ 处用于优化的局部坐标系。
+在某些机器人问题中，可以使用向量值未知量；但在大多数实际场景中，我们必须处理三维旋转以及其他非向量流形。粗略地说，流形是一个拓扑闭合的曲面（例如圆的周长或球面）；重要的是，在每个点附近，流形局部上都类似于欧氏空间。处理流形需要更精密的数学工具，以考虑其特殊结构。本节讨论如何在流形上执行优化，这将在上一章向量空间优化框架的基础上展开。作为示例，图 2.1 对球面流形 $\mathcal{M}$ 及其切空间 $T_x\mathcal{M}$ 进行了可视化；切空间可作为 $x\in\mathcal{M}$ 处用于优化的局部坐标系。
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{bbe04e3dd68402335deae02f97a01ba9bd5413b1b433cd0d96e4948fd713088a.jpg}
-\caption{图 2.1 对于球面流形 $\mathcal M$，$T_x\mathcal M$ 是局部切平面；配合局部基，可以定义局部坐标。}
+\caption{图 2.1 对于球面流形 $\mathcal{M}$，$T_x\mathcal{M}$ 是局部切平面；配合局部基，可以定义局部坐标。}
 \label{fig:bbe04e3dd68402335deae02f97a01ba9bd5413b1b433cd0d96e4948fd713088a}
 \end{figure}
 
@@ -27,7 +27,7 @@
 \boldsymbol {R} _ {a} ^ {b} = \left[ \begin{array}{c c} \cos \theta & - \sin \theta \\ \sin \theta & \cos \theta \end{array} \right],\tag{2.1}
 \end{equation}
 
-其中 $\theta\in\mathbb R$ 是旋转角，也是该情形下唯一的自由度。此外，$R_a^b$ 可将参考坐标系 $\mathcal F^a$ 中表示的二维向量（例如路标）旋转到 $\mathcal F^b$ 中：$\ell^b=R_a^b\ell^a$。
+其中 $\theta\in\mathbb{R}$ 是旋转角，也是该情形下唯一的自由度。此外，$R_a^b$ 可将参考坐标系 $\mathcal{F}^a$ 中表示的二维向量（例如路标）旋转到 $\mathcal{F}^b$ 中：$\ell^b=R_a^b\ell^a$。
 
 三维旋转矩阵 $R_a^b\in\mathrm{SO}(3)$ 同样用于在两个坐标系之间旋转向量，只是此时向量处于三维空间。三维旋转矩阵有 9 个元素，但只有 3 个自由度（例如滚转、俯仰和偏航）。二维和三维旋转矩阵都必须满足约束
 
@@ -37,7 +37,7 @@
 
 以适当地限制自由度。
 
-机器人的位姿同时包含旋转变量 $R_a^b\in\mathrm{SO}(d)$ 和平移变量 $\pmb t_a^b\in\mathbb R^d$，总共有 $3(d-1)$ 个自由度。有时我们分别跟踪这两类量，并使用 $\{R_a^b,\pmb t_a^b\}\in\mathrm{SO}(d)\times\mathbb R^d$ 表示位姿。另一种方式是将它们组合成一个 $(d+1)\times(d+1)$ 的变换矩阵：
+机器人的位姿同时包含旋转变量 $R_a^b\in\mathrm{SO}(d)$ 和平移变量 $\pmb t_a^b\in\mathbb{R}^d$，总共有 $3(d-1)$ 个自由度。有时我们分别跟踪这两类量，并使用 $\{R_a^b,\pmb t_a^b\}\in\mathrm{SO}(d)\times\mathbb{R}^d$ 表示位姿。另一种方式是将它们组合成一个 $(d+1)\times(d+1)$ 的变换矩阵：
 
 \begin{equation}
 \boldsymbol {T} _ {a} ^ {b} = \left[ \begin{array}{c c} \boldsymbol {R} _ {a} ^ {b} & \boldsymbol {t} _ {a} ^ {b} \\ \boldsymbol {0} & 1 \end{array} \right].\tag{2.2}
@@ -104,7 +104,7 @@
 
 建立矩阵 Lie 群之后，就可以利用它们将非线性最小二乘项“线性化”，从而执行 MAP 推断。回顾第 1.3.1 节，我们仍然要线性化测量函数 $\pmb h_i(\cdot)$，只是其输入现在可能包含 Lie 群元素。
 
-例如，假设 $\pmb h_i(\cdot)$ 是一个相机模型，它接收在相机坐标系中表示的齐次路标 $\tilde\ell_i^c$，并返回图像中的像素坐标 $z_i\in\mathbb R^2$。传感器生成模型可写为
+例如，假设 $\pmb h_i(\cdot)$ 是一个相机模型，它接收在相机坐标系中表示的齐次路标 $\tilde\ell_i^c$，并返回图像中的像素坐标 $z_i\in\mathbb{R}^2$。传感器生成模型可写为
 
 \begin{equation}
 \boldsymbol {z} _ {i} = \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c} \tilde {\ell} _ {i} ^ {w}\right) + \boldsymbol {\eta} _ {i}.\tag{2.8}
@@ -124,7 +124,7 @@
 \pmb {T} _ {w} ^ {c} = \pmb {T} _ {w} ^ {c ^ {0}} \mathrm{Exp} (\pmb {\xi}).\tag{2.10}
 \end{equation}
 
-这里 $\pmb\xi\in\mathbb R^6$ 产生一个“小的”位姿变化，用于扰动初始猜测 $\pmb T_w^{c^0}\in\mathrm{SE}(3)$。也常用简写记号
+这里 $\pmb\xi\in\mathbb{R}^6$ 产生一个“小的”位姿变化，用于扰动初始猜测 $\pmb T_w^{c^0}\in\mathrm{SE}(3)$。也常用简写记号
 
 \begin{equation}
 \pmb {T} _ {w} ^ {c} = \pmb {T} _ {w} ^ {c ^ {0}} \oplus \pmb {\xi},\tag{2.11}
@@ -268,7 +268,7 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 \boldsymbol {\epsilon} ^ {\wedge} = \operatorname{Ad} _ {T} \boldsymbol {\xi} ^ {\wedge} = T \boldsymbol {\xi} ^ {\wedge} T ^ {- 1}.\tag{2.28}
 \end{equation}
 
-等价地，也可以用伴随矩阵 $\operatorname{Ad}(\pmb T)$ 将 $\pmb\xi\in\mathbb R^6$ 线性变换到 $\mathbb R^6$：
+等价地，也可以用伴随矩阵 $\operatorname{Ad}(\pmb T)$ 将 $\pmb\xi\in\mathbb{R}^6$ 线性变换到 $\mathbb{R}^6$：
 
 \begin{equation}
 \operatorname{Ad} _ {\boldsymbol {T}} \boldsymbol {\xi} ^ {\wedge} = (\operatorname{Ad} (\boldsymbol {T}) \boldsymbol {\xi}) ^ {\wedge}.\tag{2.29}
@@ -296,13 +296,13 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 
 \subsubsection{雅可比}
 
-每个 Lie 群都有相应的雅可比，用于联系群元素的变化与其 Lie 代数元素。以 $\mathrm{SO}(d)$ 为例，旋转矩阵 $R_a^b$ 与角速度 $\pmb\omega^b\in\mathbb R^{2d-3}$ 之间的运动学方程（Poisson 方程）为
+每个 Lie 群都有相应的雅可比，用于联系群元素的变化与其 Lie 代数元素。以 $\mathrm{SO}(d)$ 为例，旋转矩阵 $R_a^b$ 与角速度 $\pmb\omega^b\in\mathbb{R}^{2d-3}$ 之间的运动学方程（Poisson 方程）为
 
 \begin{equation}
 \dot {\boldsymbol {R}} _ {a} ^ {b} = \boldsymbol {\omega} ^ {b ^ {\wedge}} \boldsymbol {R} _ {a} ^ {b}.\tag{2.32}
 \end{equation}
 
-这里 $\pmb\omega^b$ 表示坐标系 $\mathcal F^a$ 相对于 $\mathcal F^b$ 的角速度，并在 $\mathcal F^b$ 中表达。若将 $R_a^b$ 参数化为 $\exp(\pmb\theta)$，则等价地有
+这里 $\pmb\omega^b$ 表示坐标系 $\mathcal{F}^a$ 相对于 $\mathcal{F}^b$ 的角速度，并在 $\mathcal{F}^b$ 中表达。若将 $R_a^b$ 参数化为 $\exp(\pmb\theta)$，则等价地有
 
 \begin{equation}
 \dot {\pmb\theta} = \pmb J^{-1}(\pmb\theta)\pmb\omega^b,\tag{2.33}
@@ -413,7 +413,7 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 
 这是对式（1.25）正规方程的修改版本。核矩阵 $K=\Psi\Psi^\mathsf T$ 起到正则化或平滑函数的作用。式（2.45）看起来比式（2.44）包含更大的线性系统，因为位姿数量多于样条系数。不过，非参数方法可以利用内置的插值能力，最终减少实际需要求解的系统规模。
 
-为了摆脱显式基函数，可以使用所谓的核技巧，用所选核函数 $\mathcal K(t,t')$（例如平方指数核）的计算结果替代基函数的显式内积。构造核矩阵只需要计算基函数内积，因此令 $K=[\mathcal K(t_i,t_j)]_{ij}$ 即可。此时不再估计样条的系数（参数），因而称为非参数方法；但仍需调节所选核函数的超参数（例如平方指数核的长度尺度），以实现期望的轨迹平滑程度。由于式（2.45）需要核矩阵的逆，直接这样做似乎代价很高；下一节将说明如何选择核函数，使逆核矩阵非常稀疏。
+为了摆脱显式基函数，可以使用所谓的核技巧，用所选核函数 $\mathcal{K}(t,t')$（例如平方指数核）的计算结果替代基函数的显式内积。构造核矩阵只需要计算基函数内积，因此令 $K=[\mathcal{K}(t_i,t_j)]_{ij}$ 即可。此时不再估计样条的系数（参数），因而称为非参数方法；但仍需调节所选核函数的超参数（例如平方指数核的长度尺度），以实现期望的轨迹平滑程度。由于式（2.45）需要核矩阵的逆，直接这样做似乎代价很高；下一节将说明如何选择核函数，使逆核矩阵非常稀疏。
 
 \subsection{高斯过程}
 
@@ -425,7 +425,7 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 \dot {\boldsymbol {x}} (t) = \boldsymbol {A} \boldsymbol {x} (t) + \boldsymbol {L} \boldsymbol {w} (t),\tag{2.46}
 \end{equation}
 
-其中 $\pmb w(t)=\mathcal{GP}(\mathbf0,\pmb{\mathcal Q}\delta(t-t'))$ 是零均值白噪声高斯过程，$\pmb{\mathcal Q}$ 是功率谱密度矩阵，$\delta(\cdot)$ 是 Dirac delta 函数。该 SDE 将充当运动先验。它可以写出闭式积分解：
+其中 $\pmb w(t)=\mathcal{GP}(\mathbf0,\pmb{\mathcal{Q}}\delta(t-t'))$ 是零均值白噪声高斯过程，$\pmb{\mathcal{Q}}$ 是功率谱密度矩阵，$\delta(\cdot)$ 是 Dirac delta 函数。该 SDE 将充当运动先验。它可以写出闭式积分解：
 
 \begin{equation}
 \boldsymbol {x} (t) = \boldsymbol {\Phi} (t, t _ {1}) \boldsymbol {x} (t _ {1}) + \int_ {t _ {1}} ^ {t} \boldsymbol {\Phi} (t, s) \boldsymbol {L} \boldsymbol {w} (s) d s,\tag{2.47}
@@ -434,7 +434,7 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 其中 $\Phi(t,s)=\exp(A(t-s))$ 称为转移函数，$t_1$ 是第一次测量的时间戳。若初始状态均值为零，则后续状态均值也保持为零；状态的协方差函数（即核函数）为
 
 \begin{equation}
-\boldsymbol {\mathcal {K}} (t, t') = \boldsymbol {\Phi} (t, t _ {1}) \boldsymbol {\mathcal {K}} (t _ {1}, t _ {1}) \boldsymbol {\Phi} (t', t _ {1}) ^ {\top} + \int_ {t _ {1}} ^ {\min (t, t')} \boldsymbol {\Phi} (t, s) \boldsymbol {L} \boldsymbol {\mathcal Q} \boldsymbol {L} ^ {\top} \boldsymbol {\Phi} (t', s) ^ {\top} d s.\tag{2.48}
+\boldsymbol {\mathcal {K}} (t, t') = \boldsymbol {\Phi} (t, t _ {1}) \boldsymbol {\mathcal {K}} (t _ {1}, t _ {1}) \boldsymbol {\Phi} (t', t _ {1}) ^ {\top} + \int_ {t _ {1}} ^ {\min (t, t')} \boldsymbol {\Phi} (t, s) \boldsymbol {L} \boldsymbol {\mathcal{Q}} \boldsymbol {L} ^ {\top} \boldsymbol {\Phi} (t', s) ^ {\top} d s.\tag{2.48}
 \end{equation}
 
 在全部测量时刻计算核函数并构造核矩阵时，可以利用简洁关系
@@ -443,7 +443,7 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 \boldsymbol {K} = \boldsymbol {\Phi} \boldsymbol {Q} \boldsymbol {\Phi} ^ {\mathsf T},\tag{2.49}
 \end{equation}
 
-其中 $Q=\operatorname{diag}(\mathcal K(t_1,t_1),Q_1,\ldots,Q_M)$，且
+其中 $Q=\operatorname{diag}(\mathcal{K}(t_1,t_1),Q_1,\ldots,Q_M)$，且
 
 \begin{equation}
 \boldsymbol {\Phi} = \left[ \begin{array}{c c c c c} \mathbf {I} & & & & \\ \boldsymbol {\Phi} (t _ {2}, t _ {1}) & \mathbf {I} & & & \\ \boldsymbol {\Phi} (t _ {3}, t _ {1}) & \boldsymbol {\Phi} (t _ {3}, t _ {2}) & \mathbf {I} & & \\ \vdots & \vdots & \vdots & \ddots & \\ \boldsymbol {\Phi} (t _ {M}, t _ {1}) & \boldsymbol {\Phi} (t _ {M}, t _ {2}) & \cdots & \boldsymbol {\Phi} (t _ {M}, t _ {M-1}) & \mathbf {I} \end{array} \right].\tag{2.50}
@@ -452,7 +452,7 @@ Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一�
 其中
 
 \begin{equation*}
-Q_i=\int_{t_{i-1}}^{t_i}\Phi(t_i,s)L\mathcal QL^\top\Phi(t_i,s)^\top ds.
+Q_i=\int_{t_{i-1}}^{t_i}\Phi(t_i,s)L\mathcal{Q}L^\top\Phi(t_i,s)^\top ds.
 \end{equation*}
 
 矩阵 $\Phi$ 是由各时间点之间的转移函数构成的下三角块矩阵，其对角块为单位阵。由于我们需要的是逆核矩阵，$K^{-1}=\Phi^{-\top}Q^{-1}\Phi^{-1}$；而 $Q$ 是块对角矩阵，逆可以逐个对角块计算。更重要的是，$\Phi^{-1}$ 只有主块对角线和紧邻其下的一个块对角线非零：

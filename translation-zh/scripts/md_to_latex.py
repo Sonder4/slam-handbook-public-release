@@ -54,6 +54,14 @@ def normalize_formula(formula: str) -> str:
 
 def normalize_math(formula: str) -> str:
     """Repair shorthand combinations that fail with amsbsy and math alphabets."""
+    # Always give math alphabet commands an explicit argument. This also protects
+    # nested forms such as \boldsymbol\Delta_{\boldsymbol\mathcal X_i}.
+    for alphabet in ("mathcal", "mathbb", "mathrm"):
+        formula = re.sub(
+            rf"\\{alphabet}\s+([A-Za-z])",
+            rf"\\{alphabet}{{\1}}",
+            formula,
+        )
     for prefix in ("boldsymbol", "pmb"):
         for alphabet in ("mathcal", "mathbb", "mathrm"):
             formula = re.sub(
