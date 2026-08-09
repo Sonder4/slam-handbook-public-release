@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare canonical translated Markdown for MathJax-enabled MkDocs pages."""
+"""Prepare Chinese and English chapter Markdown for the MkDocs website."""
 
 from __future__ import annotations
 
@@ -12,7 +12,14 @@ from pathlib import Path
 
 IMAGE_RE = re.compile(r"^!\[\]\(([^)]+)\)\s*$")
 CAPTION_RE = re.compile(r"^图\s+(\d+\.\d+)\b")
+ENGLISH_CAPTION_RE = re.compile(r"^Figure\s+\d+\.\d+\b")
+ENGLISH_FIGURE_REF_RE = re.compile(r"Figure\s+(?P<number>[12]\.\d+)\b")
+ENGLISH_FORMULA_REF_RE = re.compile(
+    r"(?P<label>Equation\s*\(?\s*(?P<number>[12]\.\d+[a-z]?)\s*\)?)"
+)
 TAG_RE = re.compile(r"\\tag\s*\{([^{}]+)\}")
+CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
+AUTHOR_RE = re.compile(r"^\*\*作者：\*\*")
 FIGURE_REF_RE = re.compile(r"图\s*(?P<number>[12]\.\d+)\b")
 FORMULA_REF_RE = re.compile(
     r"(?P<label>(?:式|公式)\s*[（(]\s*(?P<number>[12]\.\d+[a-z]?)\s*[）)])"
@@ -81,7 +88,11 @@ def replace_references(
             return f"[{match.group('label')}]({href})"
 
         prose = FORMULA_REF_RE.sub(formula_link, prose)
-        return FIGURE_REF_RE.sub(figure_link, prose)
+        prose = FIGURE_REF_RE.sub(figure_link, prose)
+        return CITATION_RE.sub(
+            lambda match: f'<sup class="citation">[{match.group(1)}]</sup>',
+            prose,
+        )
 
     parts: list[str] = []
     start = 0
@@ -111,6 +122,21 @@ def make_reference_index(figures: list[str], formulas: list[str]) -> list[str]:
     ]
 
 
+def counterpart_link(chapter_number: str, language: str) -> str:
+    # MkDocs resolves Markdown links relative to the current document.
+    # Keep the counterpart target extensionless so Material's URL rewriting
+    # remains correct both locally and under the repository Pages base path.
+    if language == "zh":
+        return (
+            f'<a class="counterpart-link" href="../original-chapter-{chapter_number}/">'
+            "English original</a>"
+        )
+    return (
+        f'<a class="counterpart-link" href="../chapter-{chapter_number}/">'
+        "中文译文</a>"
+    )
+
+
 def transform_chapter(
     source: Path,
     all_figures: set[str],
@@ -128,11 +154,13 @@ def transform_chapter(
         raw = lines[index]
         stripped = raw.strip()
 
-        if not inserted_index and raw.startswith("# "):
-            output.append(raw)
-            output.append("")
-            output.extend(make_reference_index(local_figures, local_formulas))
-            inserted_index = True
+        if raw.startswith("#"):
+            output.extend([raw, ""])
+            if not inserted_index and raw.startswith("# "):
+                chapter_number = source.stem.rsplit("-", maxsplit=1)[-1]
+                output.extend([counterpart_link(chapter_number, "zh"), ""])
+                output.extend(make_reference_index(local_figures, local_formulas))
+                inserted_index = True
             index += 1
             continue
 
@@ -179,16 +207,156 @@ def transform_chapter(
                 index += 1
             continue
 
-        output.append(replace_references(raw, current_file, all_figures, all_formulas))
+        if stripped == "":
+            output.append("")
+            index += 1
+            continue
+
+        line = replace_references(raw, current_file, all_figures, all_formulas)
+        if AUTHOR_RE.match(stripped):
+            output.extend([line, "{ .chapter-authors }"])
+        else:
+            output.extend([line, "{ .book-paragraph }"])
         index += 1
 
     return "\n".join(output) + "\n"
+
+
+def source_chapter_range(lines: list[str], chapter_number: str) -> tuple[int, int]:
+    chapter_titles = {
+        "1": "Factor Graphs for SLAM Frank Dellaert, Michael Kaess, and Timothy Barfoot",
+        "2": "Advanced State Variable Representations",
+    }
+    start = next(
+        index
+        for index, line in enumerate(lines)
+        if line.strip() == chapter_titles[chapter_number]
+        and index > 500
+    )
+    next_title = (
+        "Advanced State Variable Representations"
+        if chapter_number == "1"
+        else "# Robustness to Incorrect Data Association and Outliers"
+    )
+    end = next(
+        index
+        for index in range(start + 1, len(lines))
+        if lines[index].strip() == next_title
+        and index > start + 100
+    )
+    return start, end
+
+
+ENGLISH_CHAPTER_METADATA = {
+    "1": {
+        "source_title": "Factor Graphs for SLAM Frank Dellaert, Michael Kaess, and Timothy Barfoot",
+        "title": "Factor Graphs for SLAM",
+        "authors": "Frank Dellaert, Michael Kaess, and Timothy Barfoot",
+    },
+    "2": {
+        "source_title": "Advanced State Variable Representations",
+        "title": "Advanced State Variable Representations",
+        "authors": "Timothy Barfoot, Frank Dellaert, Michael Kaess, and Jose Luis Blanco-Claraco",
+    },
+}
+
+
+def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
+    start, end = source_chapter_range(lines, chapter_number)
+    chapter = lines[start:end]
+    metadata = ENGLISH_CHAPTER_METADATA[chapter_number]
+    title = metadata["title"]
+    authors = metadata["authors"]
+    body_start = next(
+        index for index, line in enumerate(chapter) if line.strip() == metadata["source_title"]
+    )
+    body = chapter[body_start + 1 :]
+    while body and not body[0].strip():
+        body = body[1:]
+    if body and body[0].strip() == authors:
+        body = body[1:]
+    local_figures: set[str] = set()
+    for image_index, line in enumerate(body):
+        if not IMAGE_RE.match(line.strip()):
+            continue
+        caption_index = image_index + 1
+        while caption_index < len(body) and not body[caption_index].strip():
+            caption_index += 1
+        if caption_index < len(body):
+            caption = re.search(r"Figure\s+(\d+\.\d+)\b", body[caption_index])
+            if caption and ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
+                local_figures.add(caption.group(1))
+    local_formulas = set(discover_formulas("\n".join(body)))
+
+    def replace_english_references(line: str) -> str:
+        line = ENGLISH_FIGURE_REF_RE.sub(
+            lambda match: f'[{match.group(0)}](#{anchor("fig", match.group("number"))})'
+            if match.group("number") in local_figures
+            else match.group(0),
+            line,
+        )
+        line = ENGLISH_FORMULA_REF_RE.sub(
+            lambda match: f'[{match.group("label")}]({"#" + anchor("eq", match.group("number"))})'
+            if match.group("number") in local_formulas
+            else match.group(0),
+            line,
+        )
+        return replace_references(line, "", set(), set())
+    output = [
+        f"# {title}",
+        "",
+        counterpart_link(chapter_number, "en"),
+        "",
+        authors,
+        "{ .chapter-authors }",
+        "",
+    ]
+    index = 0
+    while index < len(body):
+        raw = body[index]
+        stripped = raw.strip()
+        if not stripped:
+            output.append("")
+        elif stripped.startswith("#"):
+            output.extend([stripped, ""])
+        elif stripped == "$$":
+            formula_lines = []
+            index += 1
+            while index < len(body) and body[index].strip() != "$$":
+                formula_lines.append(body[index])
+                index += 1
+            if index >= len(body):
+                raise ValueError(f"Unclosed English display formula in chapter {chapter_number}")
+            formula = "\n".join(formula_lines).strip()
+            tagged = TAG_RE.search(formula)
+            if tagged:
+                output.extend([f'<a id="{anchor("eq", tagged.group(1).strip())}" class="equation-anchor"></a>', ""])
+            output.extend(["$$", formula, "$$"])
+        elif IMAGE_RE.match(stripped):
+            caption_match = None
+            caption_index = index + 1
+            while caption_index < len(body) and not body[caption_index].strip():
+                output.append("")
+                caption_index += 1
+            if caption_index < len(body) and ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
+                caption_match = re.search(r"Figure\s+(\d+\.\d+)", body[caption_index].strip())
+            if caption_match:
+                output.extend([f'<a id="{anchor("fig", caption_match.group(1))}" class="figure-anchor"></a>', ""])
+            output.append(raw)
+            if caption_match:
+                output.extend([f"*{body[caption_index].strip()}*", "{ .figure-caption }", ""])
+                index = caption_index
+        else:
+            output.extend([replace_english_references(raw), "{ .book-paragraph }", ""])
+        index += 1
+    return "\n".join(output).rstrip() + "\n"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--english-source", type=Path, required=True)
     args = parser.parse_args()
 
     source_dir = args.source.resolve()
@@ -210,13 +378,23 @@ def main() -> int:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     shutil.copytree(source_dir, output_dir)
+    shutil.rmtree(output_dir / "original", ignore_errors=True)
     for chapter in chapters:
         destination = output_dir / chapter.name
         destination.write_text(
             transform_chapter(chapter, all_figures, all_formulas), encoding="utf-8"
         )
+    english_lines = args.english_source.read_text(encoding="utf-8-sig").splitlines()
+    for chapter_number in ("1", "2"):
+        destination = output_dir / f"original-chapter-{chapter_number}.md"
+        destination.write_text(
+            transform_english_chapter(english_lines, chapter_number), encoding="utf-8"
+        )
 
-    print(f"Prepared {len(chapters)} chapters, {len(all_formulas)} equations, and {len(all_figures)} figures.")
+    print(
+        f"Prepared {len(chapters)} Chinese chapters, 2 English chapters, "
+        f"{len(all_formulas)} equations, and {len(all_figures)} figures."
+    )
     return 0
 
 

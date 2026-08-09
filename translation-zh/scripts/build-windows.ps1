@@ -6,6 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $translationRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = Split-Path -Parent $translationRoot
+$englishSource = Join-Path $translationRoot 'content\original\full.md'
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
     throw 'Python was not found. Install Python 3.10+ and ensure python.exe is on PATH.'
@@ -60,7 +61,7 @@ if (-not $SkipSite) {
         throw 'mkdocs was not found. Install it with: python -m pip install mkdocs-material pymdown-extensions'
     }
     $webPreprocessor = Join-Path $PSScriptRoot 'prepare_web_markdown.py'
-    & $python.Source $webPreprocessor --source (Join-Path $translationRoot 'content') --output (Join-Path $translationRoot 'site-docs')
+    & $python.Source $webPreprocessor --source (Join-Path $translationRoot 'content') --output (Join-Path $translationRoot 'site-docs') --english-source $englishSource
     if ($LASTEXITCODE -ne 0) { throw 'Website Markdown preparation failed.' }
 
     Push-Location $translationRoot

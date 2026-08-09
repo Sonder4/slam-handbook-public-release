@@ -20,4 +20,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 也可以只生成 PDF 而跳过网站：`.\scripts\build-windows.ps1 -SkipSite`。GitHub Actions 使用相同的 Windows 构建脚本，并在独立的 Pages 部署任务中发布静态站点。
 
+网站为每个中文章节提供对应的 English original 页面，两个版本可以相互跳转。桌面端左右导航栏固定贴边、宽度稳定，并可独立收起；正文保留段落边界、首行缩进、图注和公式排版。
+
+同步英文提取源：
+
+```powershell
+python scripts/sync_english_source.py --input <full.md> --output content\original\full.md --images-input <images> --images-output content\images
+```
+
 原著由 Cambridge University Press 出版。请保留原项目、作者、编辑和出版方信息，并仅在取得相应授权的范围内公开使用中文翻译。

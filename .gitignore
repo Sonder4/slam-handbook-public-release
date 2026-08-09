@@ -8,4 +8,5 @@ translation-zh/latex/*.synctex.gz
 translation-zh/site/
 translation-zh/site-docs/
 translation-zh/content/assets/
+translation-zh/content/original/images/
 __pycache__/

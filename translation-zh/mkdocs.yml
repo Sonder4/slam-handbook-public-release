@@ -17,11 +17,15 @@ nav:
   - 首页: index.md
   - 第 1 章：SLAM 的因子图: chapter-1.md
   - 第 2 章：高级状态变量表示: chapter-2.md
+  - English original:
+      - Chapter 1: original-chapter-1.md
+      - Chapter 2: original-chapter-2.md
 
 plugins:
   - search
 
 markdown_extensions:
+  - attr_list
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.superfences
@@ -30,6 +34,7 @@ markdown_extensions:
       permalink: true
 
 extra_javascript:
+  - javascripts/sidebar-controls.js
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 

@@ -1,7 +1,131 @@
-/* Keep long equations readable on narrow Pages viewports. */
+/* Print-like chapter rhythm, while figures and mathematics retain their own layout. */
 .arithmatex { overflow-x: auto; overflow-y: hidden; }
 .md-typeset img { max-width: 100%; height: auto; }
+.md-typeset .book-paragraph {
+  margin: 0 0 0.82em;
+  text-indent: 2em;
+  text-align: justify;
+}
+.md-typeset .chapter-authors {
+  margin: 0 0 1.15em;
+  font-weight: 600;
+  text-indent: 0;
+}
+.md-typeset .figure-caption {
+  margin: 0.35em 0 1.25em;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.8rem;
+  text-align: center;
+  text-indent: 0;
+}
+.md-typeset .citation {
+  margin-left: 0.08em;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.72em;
+  line-height: 0;
+  vertical-align: super;
+}
+.md-typeset .counterpart-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  margin: 0 0 1.25rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-indent: 0;
+}
 .md-typeset .equation-anchor,
 .md-typeset .figure-anchor { scroll-margin-top: 4rem; }
 .md-typeset .reference-index { margin: 1rem 0 1.5rem; }
 .md-typeset .reference-index p { line-height: 1.8; }
+
+/* Fixed desktop readers: navigation and in-page outline align with browser edges. */
+@media screen and (min-width: 76.25em) {
+  :root {
+    --reader-sidebar-width: 17.5rem;
+    --reader-sidebar-toggle: 2.2rem;
+  }
+
+  body.reader-primary-collapsed {
+    --reader-primary-width: var(--reader-sidebar-toggle);
+  }
+  body.reader-secondary-collapsed {
+    --reader-secondary-width: var(--reader-sidebar-toggle);
+  }
+
+  .md-main__inner {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .md-sidebar--primary,
+  .md-sidebar--secondary {
+    position: fixed;
+    top: var(--md-header-height);
+    bottom: 0;
+    width: var(--reader-sidebar-width);
+    margin: 0;
+    background: var(--md-default-bg-color);
+    border-color: var(--md-default-fg-color--lighter);
+    border-style: solid;
+    z-index: 2;
+    transition: width 0.2s ease;
+  }
+  .md-sidebar--primary {
+    left: 0;
+    border-width: 0 1px 0 0;
+  }
+  .md-sidebar--secondary {
+    right: 0;
+    border-width: 0 0 0 1px;
+  }
+  .md-sidebar__scrollwrap {
+    height: 100%;
+    margin: 0;
+  }
+  .md-sidebar__inner {
+    width: var(--reader-sidebar-width);
+    padding: 0.6rem 0.5rem 1rem;
+    transition: opacity 0.12s ease;
+  }
+  .md-content {
+    width: auto;
+    margin-left: calc(var(--reader-primary-width, var(--reader-sidebar-width)) + 2.25rem);
+    margin-right: calc(var(--reader-secondary-width, var(--reader-sidebar-width)) + 2.25rem);
+  }
+  .md-content__inner {
+    max-width: 52rem;
+    margin: 0 auto;
+  }
+  body.reader-primary-collapsed .md-sidebar--primary,
+  body.reader-secondary-collapsed .md-sidebar--secondary {
+    width: var(--reader-sidebar-toggle);
+  }
+  body.reader-primary-collapsed .md-sidebar--primary .md-sidebar__inner,
+  body.reader-secondary-collapsed .md-sidebar--secondary .md-sidebar__inner {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .reader-sidebar-toggle {
+    position: fixed;
+    top: calc(var(--md-header-height) + 0.5rem);
+    z-index: 3;
+    width: 1.7rem;
+    height: 1.9rem;
+    padding: 0;
+    border: 1px solid var(--md-default-fg-color--lighter);
+    border-radius: 0;
+    background: var(--md-default-bg-color);
+    color: var(--md-default-fg-color);
+    cursor: pointer;
+  }
+  .reader-sidebar-toggle--primary { left: 0.25rem; }
+  .reader-sidebar-toggle--secondary { right: 0.25rem; }
+}
+
+@media screen and (max-width: 76.234em) {
+  .reader-sidebar-toggle { display: none; }
+}
