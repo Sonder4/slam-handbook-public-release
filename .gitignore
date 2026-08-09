@@ -6,4 +6,6 @@ translation-zh/latex/*.out
 translation-zh/latex/*.toc
 translation-zh/latex/*.synctex.gz
 translation-zh/site/
+translation-zh/site-docs/
 translation-zh/content/assets/
+__pycache__/

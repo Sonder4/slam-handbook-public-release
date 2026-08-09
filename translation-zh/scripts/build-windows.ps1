@@ -59,6 +59,10 @@ if (-not $SkipSite) {
     if (-not $mkdocs) {
         throw 'mkdocs was not found. Install it with: python -m pip install mkdocs-material pymdown-extensions'
     }
+    $webPreprocessor = Join-Path $PSScriptRoot 'prepare_web_markdown.py'
+    & $python.Source $webPreprocessor --source (Join-Path $translationRoot 'content') --output (Join-Path $translationRoot 'site-docs')
+    if ($LASTEXITCODE -ne 0) { throw 'Website Markdown preparation failed.' }
+
     Push-Location $translationRoot
     try {
         & $mkdocs.Source build --strict --config-file 'mkdocs.yml'

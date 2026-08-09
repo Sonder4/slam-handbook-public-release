@@ -13,6 +13,7 @@ TAG_RE = re.compile(r"\\tag\s*\{([^{}]+)\}")
 MATH_RE = re.compile(r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$")
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 SUP_RE = re.compile(r"<sup>(.+?)</sup>")
+CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
 
 
 def escape_text(text: str) -> str:
@@ -27,6 +28,8 @@ def escape_text(text: str) -> str:
     text = BOLD_RE.sub(lambda m: hold(r"\textbf{" + escape_text(m.group(1)) + "}"), text)
     text = SUP_RE.sub(lambda m: hold(r"\textsuperscript{" + escape_text(m.group(1)) + "}"), text)
     text = MATH_RE.sub(lambda m: hold("$" + normalize_math(m.group(1)) + "$"), text)
+    # Keep literal numeric bibliography references while matching book-style superscripts.
+    text = CITATION_RE.sub(lambda m: hold(r"\textsuperscript{[" + m.group(1) + "]}"), text)
 
     replacements = {
         "\\": r"\textbackslash{}",
@@ -122,9 +125,12 @@ def convert_markdown(source: Path) -> str:
         if image:
             image_path = image.group(1).replace("\\", "/").split("/")[-1]
             caption = ""
-            if index + 1 < len(lines) and lines[index + 1].strip().startswith("图"):
-                caption = lines[index + 1].strip()
-                index += 1
+            caption_index = index + 1
+            while caption_index < len(lines) and not lines[caption_index].strip():
+                caption_index += 1
+            if caption_index < len(lines) and lines[caption_index].strip().startswith("图"):
+                caption = lines[caption_index].strip()
+                index = caption_index
             stem = re.sub(r"[^A-Za-z0-9_-]", "-", Path(image_path).stem)
             figure = [
                 r"\begin{figure}[htbp]",

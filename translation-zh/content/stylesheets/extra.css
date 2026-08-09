@@ -1,3 +1,7 @@
 /* Keep long equations readable on narrow Pages viewports. */
 .arithmatex { overflow-x: auto; overflow-y: hidden; }
 .md-typeset img { max-width: 100%; height: auto; }
+.md-typeset .equation-anchor,
+.md-typeset .figure-anchor { scroll-margin-top: 4rem; }
+.md-typeset .reference-index { margin: 1rem 0 1.5rem; }
+.md-typeset .reference-index p { line-height: 1.8; }

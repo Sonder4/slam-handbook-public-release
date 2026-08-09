@@ -1,11 +1,13 @@
 \documentclass[UTF8,fontset=fandol,oneside]{ctexbook}
 
 \usepackage{amsmath,amssymb,bm,mathtools}
+\usepackage[a4paper,left=21mm,right=21mm,top=20mm,bottom=22mm,headheight=16pt,headsep=8mm]{geometry}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{microtype}
 \usepackage[hidelinks]{hyperref}
 \usepackage{caption}
+\usepackage{fancyhdr}
 
 \graphicspath{{../content/images/}}
 \providecommand{\pmb}[1]{\boldsymbol{#1}}
@@ -13,6 +15,18 @@
 \setcounter{tocdepth}{3}
 \allowdisplaybreaks
 \setlength{\emergencystretch}{3em}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[C]{\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\chaptermark}[1]{\markboth{第\thechapter 章\quad #1}{}}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyhead[C]{\nouppercase{\leftmark}}%
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{0.4pt}%
+}
 
 \hypersetup{
   pdftitle={SLAM Handbook：从定位与建图到空间智能（第1、2章中文翻译）},

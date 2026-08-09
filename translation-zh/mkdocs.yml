@@ -1,7 +1,7 @@
 site_name: SLAM Handbook 中文翻译
 site_description: SLAM Handbook 第 1、2 章中文翻译、LaTeX 源码与 PDF
 site_url: https://sonder4.github.io/slam-handbook-public-release/
-docs_dir: content
+docs_dir: site-docs
 site_dir: site
 
 theme:
@@ -30,6 +30,7 @@ markdown_extensions:
       permalink: true
 
 extra_javascript:
+  - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:
