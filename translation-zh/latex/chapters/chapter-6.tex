@@ -14,7 +14,7 @@
 
 \section{SLAM 的可认证最优求解器}
 
-SLAM 通常被表述为高维非凸问题。由于存在大量局部极小值，求解一般非凸优化问题的全局解本身极具挑战。特别地，SLAM 的许多特殊情形（例如角同步、旋转平均和 PGO）已知为 NP-困难问题。因此，除非 P = NP，不存在能够在一般情形下高效求解这些问题的算法 \textsuperscript{[938]}。
+SLAM 通常被表述为高维非凸问题。由于存在大量局部极小值，求解一般非凸优化问题的全局解本身极具挑战（图 6.1）。特别地，SLAM 的许多特殊情形（例如角同步、旋转平均和 PGO）已知为 NP-困难问题。因此，除非 P = NP，不存在能够在一般情形下高效求解这些问题的算法 \textsuperscript{[938]}。
 
 尽管具有这种理论复杂性，早期 SLAM 研究却持续显示出向接近真值的解收敛这一令人惊讶的现象。SLAM 算法通常以由里程计计算得到的机器人位姿初始化。在经过良好标定的移动机器人中，里程计漂移可以低于行驶距离的百分之一。因此，SLAM 异乎寻常的可靠收敛最初被归因于高质量初始估计的可得性。
 
@@ -139,7 +139,7 @@ f (\hat {\boldsymbol {x}}) - p ^ {*} \leq f (\hat {\boldsymbol {x}}) - d ^ {*}.\
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\linewidth]{511c5728c6b53730be52eaf0d6bb3feba6c37c575039c7ec017f45cd8f672321.jpg}
-\caption{图 6.2 位姿图示例。这里，顶点与待估未知位姿 $T _ { i } = ( t _ { i } , R _ { i } ) \in \mathrm { S E } ( d )$ 一一对应；有向边则与它们之间相对位姿的一组带噪测量 $\tilde { \pmb { T } } _ { i j }$ ≈ ${ \pmb T } _ { i } ^ { - 1 } { \pmb T } _ { j }$ 一一对应。}
+\caption{图 6.2 位姿图示例。这里，顶点与待估未知位姿 $T _ { i } = ( t _ { i } , R _ { i } ) \in \mathrm { S E } ( d )$ 一一对应；有向边则与它们之间相对位姿的一组带噪测量 $\tilde { \pmb { T } } _ { i j } \approx { \pmb T } _ { i } ^ { - 1 } { \pmb T } _ { j }$ 一一对应。}
 \label{fig:511c5728c6b53730be52eaf0d6bb3feba6c37c575039c7ec017f45cd8f672321}
 \end{figure}
 

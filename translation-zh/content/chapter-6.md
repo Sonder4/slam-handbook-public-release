@@ -119,7 +119,7 @@ $$
 位姿图优化（PGO）在 $d$ 维空间中（SLAM 通常取 $d = 2$ 或 3），根据它们之间一组相对位姿的带噪测量 $\tilde { \mathbf { T } } _ { i j } \approx \mathbf { \cal { T } } _ { i } ^ { - 1 } \mathbf { \cal { T } } _ { j }$，估计一组 $n$ 个未知位姿 $T _ { 1 } , \ldots , T _ { n } \in { \mathrm { S E } } ( d )$ 的取值。实践中，未知位姿 $T _ { 1 } , \ldots , T _ { n }$ 描述机器人轨迹（即在机器人轨迹的离散时刻进行采样），而测量 $\tilde { \pmb { T } } _ { i j }$ 由 SLAM 前端获得，例如通过 LiDAR 扫描匹配、轮式里程计或三维计算机视觉技术获得。本小节说明如何通过最大似然估计将该估计问题形式化。将会看到，在关于噪声作出适当假设时，所得优化问题是 QCQP。
 
 ![](images/511c5728c6b53730be52eaf0d6bb3feba6c37c575039c7ec017f45cd8f672321.jpg)
-图 6.2 位姿图示例。这里，顶点与待估未知位姿 $T _ { i } = ( t _ { i } , R _ { i } ) \in \mathrm { S E } ( d )$ 一一对应；有向边则与它们之间相对位姿的一组带噪测量 $\tilde { \pmb { T } } _ { i j }$ ≈ ${ \pmb T } _ { i } ^ { - 1 } { \pmb T } _ { j }$ 一一对应。
+图 6.2 位姿图示例。这里，顶点与待估未知位姿 $T _ { i } = ( t _ { i } , R _ { i } ) \in \mathrm { S E } ( d )$ 一一对应；有向边则与它们之间相对位姿的一组带噪测量 $\tilde { \pmb { T } } _ { i j } \approx { \pmb T } _ { i } ^ { - 1 } { \pmb T } _ { j }$ 一一对应。
 
 首先，常可方便地使用按如下方式构造的位姿图 $\overrightarrow { \mathcal { G } }$ 来建模定义此估计问题的数据。令 $\mathcal { G } = ( \nu , \mathcal { E } )$ 为简单无向图，其节点 $i$ 与未知位姿 $T_i$ 一一对应，其边 $\{ i , j \} \in { \mathcal { E } }$ 与可用测量集合一一对应。<sup>3</sup> 不失一般性，假定 $\mathcal { G }$ 是连通的。<sup>4</sup> 随后，对 $\mathcal { G }$ 的每条边指定方向（参见图 6.2），即可从 $\mathcal { G }$ 得到位姿图 $\vec { \mathcal { G } } = ( \nu , \vec { \mathcal { E } } )$。按约定，描述位姿 $T_j$ 在位姿 $T_i$ 坐标系中取值的（带噪）测量 $\tilde { \pmb { T } } _ { i j }$，对应于从 $i$ 指向 $j$ 的有向边。
 
