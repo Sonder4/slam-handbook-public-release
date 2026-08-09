@@ -160,13 +160,13 @@ p (\pmb {x} | \pmb {z}) \propto p (\pmb {p} _ {1}) p (\pmb {p} _ {2} | \pmb {p} 
 
 上式中的第二个等式是贝叶斯定律，它将后验表示为测量密度 $p(\boldsymbol z|\boldsymbol x)$ 与状态先验 $p(\pmb x)$ 的乘积，再用 $p(\boldsymbol z)$ 进行适当归一化。第三个等式省略了 $p(\boldsymbol z)$，因为它与 $\pmb x$ 无关，不会影响求 $\arg\max$ 的结果。换言之，式（1.6c）告诉我们：MAP 估计使似然 $p(\boldsymbol z|\boldsymbol x)$ 与先验 $p(\pmb x)$ 的乘积最大。
 
-我们使用因子图表示未归一化后验 $p(\pmb z|\pmb x)p(\pmb x)$。形式上，因子图 $\boldsymbol F=(\boldsymbol{\mathcal{U}},\boldsymbol{\mathcal{V}},\boldsymbol{\mathcal{E}})$ 是一个二部图，包含两类节点：因子 $\phi_i\in\mathcal{U}$ 和变量 $\boldsymbol x_j\in\mathcal{V}$。边 $e_{ij}\in\mathcal{E}$ 始终连接因子节点和变量节点。与因子 $\phi_i$ 相邻的变量节点集合记作 $\mathcal{X}(\phi_i)$；我们用 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_i}$ 表示对该集合的一次赋值。按照这些定义，因子图 $F$ 将全局函数 $\phi(\pmb x)$ 定义为
+我们使用因子图表示未归一化后验 $p(\pmb z|\pmb x)p(\pmb x)$。形式上，因子图 $\boldsymbol F=(\boldsymbol{\mathcal{U}},\boldsymbol{\mathcal{V}},\boldsymbol{\mathcal{E}})$ 是一个二部图，包含两类节点：因子 $\phi_i\in\mathcal{U}$ 和变量 $\boldsymbol x_j\in\mathcal{V}$。边 $e_{ij}\in\mathcal{E}$ 始终连接因子节点和变量节点。与因子 $\phi_i$ 相邻的变量节点集合记作 $\mathcal{X}(\phi_i)$；我们用 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_i}$ 表示对该集合的一次赋值。按照这些定义，因子图 $F$ 将全局函数 $\phi(\pmb x)$ 定义为
 
 \begin{equation}
 \phi (\boldsymbol {x}) = \prod_ {i} \phi_ {i} (\boldsymbol {x} _ {i}).\tag{1.7}
 \end{equation}
 
-换言之，独立关系由因子图中的边 $e_{ij}$ 编码；每个因子 $\phi_i$ 只依赖于其邻接集合 $\mathcal{X}(\phi_i)$ 中的变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_i}$。
+换言之，独立关系由因子图中的边 $e_{ij}$ 编码；每个因子 $\phi_i$ 只依赖于其邻接集合 $\mathcal{X}(\phi_i)$ 中的变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_i}$。
 
 本章其余部分将说明，如何通过对因子图中的未知变量进行优化，找到最优赋值，即 MAP 估计。对于任意因子图，MAP 推断归结为最大化所有因子图势函数的乘积（式 1.7）：
 
@@ -256,7 +256,7 @@ p (\boldsymbol {o} _ {t} | \boldsymbol {p} _ {t + 1}, \boldsymbol {p} _ {t}) = \
 
 最小化这个目标函数，就是将多个由测量得到的因子以及可能存在的多个先验结合起来，执行传感器融合，从而确定未知量的 MAP 解。
 
-一个重要而不太显然的观察是，式（1.18）中的因子通常只描述所涉及未知变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_i}$ 的部分概率。除简单的先验因子外，测量 $z_i$ 的维度通常低于未知量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_i}$ 的维度。在这种情况下，单个因子会为 $\pmb x_i$ 定义域中的一个无限子集赋予相同的似然。例如，相机图像中的一个二维测量，与一整条能够投影到该图像位置的三维点射线相容。
+一个重要而不太显然的观察是，式（1.18）中的因子通常只描述所涉及未知变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_i}$ 的部分概率。除简单的先验因子外，测量 $z_i$ 的维度通常低于未知量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_i}$ 的维度。在这种情况下，单个因子会为 $\pmb x_i$ 定义域中的一个无限子集赋予相同的似然。例如，相机图像中的一个二维测量，与一整条能够投影到该图像位置的三维点射线相容。
 
 尽管函数 $\pmb h_i$ 是非线性的，但如果有一个足够好的初始猜测，本章讨论的非线性优化方法通常能够收敛到式（1.18）的全局最小值。不过需要提醒的是，式（1.18）的目标函数是非凸的，因此当初始猜测较差时，无法保证不会陷入局部最小值。这促成了所谓的\textbf{可证明最优求解器}，第 6 章将对此进行介绍。下面我们先关注局部方法，而不是全局求解器；首先考虑更容易的线性化问题。
 
@@ -278,7 +278,7 @@ p (\boldsymbol {o} _ {t} | \boldsymbol {p} _ {t + 1}, \boldsymbol {p} _ {t}) = \
 \boldsymbol {H} _ {i} \triangleq \left. \frac {\partial \boldsymbol {h} _ {i} (\boldsymbol {x} _ {i})}{\partial \boldsymbol {x} _ {i}} \right| _ {\boldsymbol {x} _ {i} ^ {0}},\tag{1.20}
 \end{equation}
 
-而 $\pmb\delta_i\triangleq\pmb x_i-\pmb x_i^0$ 是状态更新向量。这里假设 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_i}$ 位于向量空间中，或者等价地，可以用向量表示。当 $\pmb x$ 中的一些未知状态表示三维旋转或其他更复杂的流形类型时，情况并不总是如此。第 2 章将重新讨论这个问题。
+而 $\pmb\delta_i\triangleq\pmb x_i-\pmb x_i^0$ 是状态更新向量。这里假设 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_i}$ 位于向量空间中，或者等价地，可以用向量表示。当 $\pmb x$ 中的一些未知状态表示三维旋转或其他更复杂的流形类型时，情况并不总是如此。第 2 章将重新讨论这个问题。
 
 将泰勒展开（式 1.19）代入非线性最小二乘表达式（式 1.18），得到关于状态更新向量 $\pmb\delta$ 的线性最小二乘问题：
 
@@ -543,11 +543,11 @@ Powell 的 dogleg（PDL）算法 \textsuperscript{[885]} 可以作为 LM 的更�
 p (\boldsymbol {x}) = p \left(\boldsymbol {x} _ {1} \mid \boldsymbol {s} _ {1}\right) p \left(\boldsymbol {x} _ {2} \mid \boldsymbol {s} _ {2}\right) \dots p \left(\boldsymbol {x} _ {n}\right) = \prod_ {j} p \left(\boldsymbol {x} _ {j} \mid \boldsymbol {s} _ {j}\right),\tag{1.42}
 \end{equation}
 
-其中，$s_j$ 表示在给定变量排序 $\pmb x_1,\ldots,\pmb x_n$ 下，与变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$ 关联的分隔集 $\pmb s(\pmb x_j)$ 的一次赋值。分隔集定义为消元后 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$ 所依赖的变量集合。虽然这种分解类似链式法则，但对稀疏因子图进行消元通常会得到很小的分隔集。
+其中，$s_j$ 表示在给定变量排序 $\pmb x_1,\ldots,\pmb x_n$ 下，与变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$ 关联的分隔集 $\pmb s(\pmb x_j)$ 的一次赋值。分隔集定义为消元后 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$ 所依赖的变量集合。虽然这种分解类似链式法则，但对稀疏因子图进行消元通常会得到很小的分隔集。
 
-消元算法每次消去一个变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$，从完整因子图 $\phi_{1:n}$ 开始。当消去每个变量时，生成一个条件密度 $p(\pmb x_j|\pmb s_j)$，以及只包含剩余变量的约简因子图 $\phi_{j+1:n}$。所有变量消元后，算法返回具有所需分解形式的贝叶斯网络。
+消元算法每次消去一个变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$，从完整因子图 $\phi_{1:n}$ 开始。当消去每个变量时，生成一个条件密度 $p(\pmb x_j|\pmb s_j)$，以及只包含剩余变量的约简因子图 $\phi_{j+1:n}$。所有变量消元后，算法返回具有所需分解形式的贝叶斯网络。
 
-给定部分已消元的因子图 $\phi_{j:n}$，要消除单个变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$，首先移除所有与该变量相邻的因子 $\phi_i(\pmb x_i)$，并将它们相乘得到乘积因子 $\psi(\pmb x_j,\pmb s_j)$。随后把 $\psi$ 分解为已消元变量上的条件分布 $p(\pmb x_j|\pmb s_j)$ 与分隔集上的新因子 $\tau(\pmb s_j)$：
+给定部分已消元的因子图 $\phi_{j:n}$，要消除单个变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$，首先移除所有与该变量相邻的因子 $\phi_i(\pmb x_i)$，并将它们相乘得到乘积因子 $\psi(\pmb x_j,\pmb s_j)$。随后把 $\psi$ 分解为已消元变量上的条件分布 $p(\pmb x_j|\pmb s_j)$ 与分隔集上的新因子 $\tau(\pmb s_j)$：
 
 \begin{equation}
 \psi(\boldsymbol {x} _ {j}, \boldsymbol {s} _ {j}) = p (\boldsymbol {x} _ {j} | \boldsymbol {s} _ {j}) \tau (\boldsymbol {s} _ {j}).\tag{1.43}
@@ -572,7 +572,7 @@ p \left(\ell_ {1}, \ell_ {2}, \boldsymbol {p} _ {1}, \boldsymbol {p} _ {2}, \bol
 
 在线性测量函数和加性正态分布噪声的情况下，变量消元算法等价于稀疏矩阵分解；稀疏 Cholesky 分解和 QR 分解都是该通用算法的特例。
 
-如前所述，消元算法逐个处理变量。对于每个变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$，移除与之相邻的所有因子 $\phi_i(\pmb x_i)$，并形成中间乘积因子 $\psi(\pmb x_j,\pmb s_j)$。只需将所有矩阵 $A_i$ 累积到一个更大的分块矩阵 $\bar A_j$ 中即可：
+如前所述，消元算法逐个处理变量。对于每个变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$，移除与之相邻的所有因子 $\phi_i(\pmb x_i)$，并形成中间乘积因子 $\psi(\pmb x_j,\pmb s_j)$。只需将所有矩阵 $A_i$ 累积到一个更大的分块矩阵 $\bar A_j$ 中即可：
 
 \begin{equation}
 \psi(\boldsymbol {x} _ {j}, \boldsymbol {s} _ {j}) \leftarrow \prod_ {i \in \mathcal {N} _ {j}} \phi_ {i} (\boldsymbol {x} _ {i})\tag{1.45a}
@@ -666,7 +666,7 @@ p (\boldsymbol {x} _ {j} | \boldsymbol {s} _ {j}) = k \exp \left(- \frac {1}{2} 
 
 消元步骤完成后，使用回代获得每个变量的 MAP 估计。如图 1.12 所示，最后被消元的变量不依赖于任何其他变量，因此可以直接从贝叶斯网络中提取该变量的 MAP 估计。按照消元顺序的逆序继续进行时，每个条件分布的所有分隔变量都将在前面的步骤中获得，从而可以计算当前前端变量的估计。
 
-在每一步中，变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$ 的 MAP 估计就是条件均值：
+在每一步中，变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$ 的 MAP 估计就是条件均值：
 
 \begin{equation}
 \pmb {x} _ {j} ^ {*} = \pmb {R} _ {j} ^ {- 1} (\pmb {d} _ {j} - \pmb {T} _ {j} \pmb {s} _ {j} ^ {*}),\tag{1.53}
@@ -682,13 +682,13 @@ p (\boldsymbol {x} _ {j} | \boldsymbol {s} _ {j}) = k \exp \left(- \frac {1}{2} 
 
 众所周知，在树结构图中的推断是高效的。相比之下，典型机器人问题对应的因子图包含许多环。不过，我们可以分两步构造树结构图模型：第一步，对因子图执行变量消元，得到具有特殊性质的贝叶斯网络；第二步，利用该特殊性质，找到该贝叶斯网络中各个团之间的树结构。
 
-通过因子图运行消元算法得到的贝叶斯网络具有一个特殊性质：它是弦图（chordal graph），即任意长度大于 3 的无向环都包含一条弦，也就是连接环上两个非相邻顶点的边。在人工智能和机器学习领域，弦图更常称为三角化图。由于它仍然是贝叶斯网络，其联合密度 $p(\pmb x)$ 可以在各个变量 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$ 上分解：
+通过因子图运行消元算法得到的贝叶斯网络具有一个特殊性质：它是弦图（chordal graph），即任意长度大于 3 的无向环都包含一条弦，也就是连接环上两个非相邻顶点的边。在人工智能和机器学习领域，弦图更常称为三角化图。由于它仍然是贝叶斯网络，其联合密度 $p(\pmb x)$ 可以在各个变量 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$ 上分解：
 
 \begin{equation}
 p (\boldsymbol {x}) = \prod_ {j} p (\boldsymbol {x} _ {j} | \boldsymbol {\pi} _ {j}),\tag{1.54}
 \end{equation}
 
-其中，$\pi_j$ 是 $\boldsymbol\Delta_{\boldsymbol\mathcal{X}_j}$ 的父节点。不过，尽管贝叶斯网络是弦图，在变量层面它仍是一个非平凡图：既不是链式结构，也不是树结构。图 1.10 最后一步给出了当前玩具 SLAM 示例的弦贝叶斯网络；其中存在无向环 $\pmb p_1-\pmb p_2-\pmb\ell_1$，说明它不具备树结构。
+其中，$\pi_j$ 是 $\boldsymbol\Delta_{\boldsymbol{\mathcal{X}}_j}$ 的父节点。不过，尽管贝叶斯网络是弦图，在变量层面它仍是一个非平凡图：既不是链式结构，也不是树结构。图 1.10 最后一步给出了当前玩具 SLAM 示例的弦贝叶斯网络；其中存在无向环 $\pmb p_1-\pmb p_2-\pmb\ell_1$，说明它不具备树结构。
 
 通过识别这个弦图中的团，可以将贝叶斯网络改写为贝叶斯树。我们引入这种新的树结构图模型，用来捕捉贝叶斯网络中的团结构。贝叶斯网络中的团之所以能构成一棵树，并不显然；这是弦性质的结果，这里不再证明。将所有这些团列在一棵无向树上，就得到团树，在人工智能和机器学习中也称为连接树。贝叶斯树只是团树的有向版本，同时保留了消元顺序的信息。
 

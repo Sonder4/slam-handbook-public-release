@@ -64,8 +64,10 @@ def normalize_math(formula: str) -> str:
         )
     for prefix in ("boldsymbol", "pmb"):
         for alphabet in ("mathcal", "mathbb", "mathrm"):
+            # \boldsymbol\mathcal{X} is still invalid: \boldsymbol must
+            # receive the complete math alphabet expression as its argument.
             formula = re.sub(
-                rf"\\{prefix}\\{alphabet}\s*([A-Za-z])",
+                rf"\\{prefix}\s*\\{alphabet}\{{\s*([A-Za-z])\s*\}}",
                 rf"\\{prefix}{{\\{alphabet}{{\1}}}}",
                 formula,
             )
