@@ -1,0 +1,653 @@
+# 《SLAM Handbook：从定位与建图到空间智能》
+
+## 第 6 章  SLAM 的可认证最优求解器与理论性质
+
+**作者：** David M. Rosen、Kasra Khosoussi、Connor Holmes、Gamini Dissanayake、Timothy Barfoot、Luca Carlone
+
+第 1–3 章讨论了如何利用最大后验估计，或更一般地利用 M-估计，将 SLAM 中出现的估计问题形式化为优化问题。此外，这些章节还介绍了迭代式局部求解器（例如 Gauss-Newton、Levenberg-Marquardt 和梯度下降），它们通过迭代细化给定初始猜测来寻找所得到优化问题的解。
+
+本章将更深入地考察 SLAM 中出现的优化问题，并回答两个基本问题。第一，能否设计高效算法，在可能不需要初始猜测的情况下，保证计算出这些问题的全局最优解？第二，作为真值的估计，最优解有多准确，又有哪些因素影响其准确性？
+
+第一个问题关乎计算与可靠性：SLAM 需要求解具有多个局部极小值的非凸优化问题。迭代算法可能因初始猜测的质量而陷入局部极小值，进而产生错误估计（图 6.1）。此外，迭代方法没有用于检测是否收敛到次优解的工具，这会在实际应用中引发可信性与可靠性问题。在第 6.1 节中，我们将说明：尽管典型 SLAM 问题具有非凸性，仍可设计可认证最优算法，将 SLAM 优化求解到可证明的最优性，并能区分次优解与最优解。这些算法基于一种称为半正定松弛的数学工具，第 6.1.1 节将对此进行回顾。本章将给出针对 PGO 的可认证算法（第 6.1.2 节的 SE-Sync）、针对带距离和方位测量的基于路标 SLAM 的可认证算法（第 6.1.3 节），随后讨论向其他 SLAM 问题的扩展，包括仅距离测量、各向异性噪声和离群值问题（第 6.1.4 节）。
+
+第二个问题涉及基本极限与估计误差：设计 SLAM 系统时，人们通常希望机器人位姿估计和地图估计接近真值，因为较大误差可能导致包括运动规划在内的下游任务失败。理解基本极限不仅对分析有用，也具有十分实际的意义：如后文所述，这些极限受因子图结构影响，而我们可以通过谨慎驱动机器人（例如迫使它重访地点或路标）来主动控制该结构。因此，第 6.2 节讨论 SLAM 估计可达精度的信息论极限。具体而言，第 6.2.1 节引入 Cramer--Rao 下界，用于量化 SLAM 中的估计误差；第 6.2.2 节则建立该下界与 SLAM 问题图结构之间的联系。
+
+我们将看到，对这些问题的研究揭示了 SLAM 问题所编码的代数、几何和图论结构，与求解该问题的计算与统计难度之间的深刻联系。照例，本章将在第 6.3 节以近期趋势与参考文献的展望作结。
+
+## 6.1 SLAM 的可认证最优求解器
+
+SLAM 通常被表述为高维非凸问题。由于存在大量局部极小值，求解一般非凸优化问题的全局解本身极具挑战（图 6.1）。特别地，SLAM 的许多特殊情形（例如角同步、旋转平均和 PGO）已知为 NP-困难问题。因此，除非 P = NP，不存在能够在一般情形下高效求解这些问题的算法 [938]。
+
+尽管具有这种理论复杂性，早期 SLAM 研究却持续显示出向接近真值的解收敛这一令人惊讶的现象。SLAM 算法通常以由里程计计算得到的机器人位姿初始化。在经过良好标定的移动机器人中，里程计漂移可以低于行驶距离的百分之一。因此，SLAM 异乎寻常的可靠收敛最初被归因于高质量初始估计的可得性。
+
+然而，后续研究表明，即使在初始化较差或不一致的情况下，包括随机梯度下降、Levenberg--Marquardt 和预条件共轭梯度法在内的一系列优化技术，也常能恢复近似最优解。这些发现说明，尽管 SLAM 是非线性非凸问题，它仍具有使其特别适合借助专用优化策略求解的内在结构。同时，这些结果也表明，即使底层 SLAM 实例是良定的，简单套用现成局部优化方法（例如梯度下降或拟牛顿法）仍可能产生极其错误的估计。这一认识推动了算法框架的发展：它们显式利用 SLAM 问题的图论与几何基础，以获得更好的收敛性质和保证。
+
+SLAM 近期最令人振奋的进展之一，是实用优化算法的发展。尽管该问题在一般意义上难解，这些算法仍能在温和条件下，可证明地恢复常见 SLAM 表述（例如 PGO）的可认证全局最优解。这类技术称为**可认证正确优化方法**（certifiably correct optimization methods），它们基于凸松弛而非局部优化。此外，它们之所以称为可认证最优，是因为在计算出优化问题的解后，能够量化该估计的次优程度，并可能认证其最优性。这并不与问题的 NP-困难性矛盾：在最坏情形下，这些算法仍可能无法为所计算的解给出最优性证书，只能提供次优性界。不过，这些算法仍有实际价值，主要有两个原因：(i) 在实践中，它们几乎能为所有实际关注的 SLAM 问题（例如具有合理测量噪声的问题）给出最优性证书；(ii) 无法给出最优性证书本身也具有信息价值，因为它可能触发对下游任务的警告，使其不要信任该 SLAM 估计，或促使机器人采取失效保护措施。
+
+![](images/720ec4e3fe91e1e145ab3a6aac31fa34dcd1594e8d859b3846e014998b143526.jpg)
+(a)
+
+![](images/c6dca3d1f2b0dd83049d593099daf7f488224730fc84043b628d17e4cca20887.jpg)
+(b)
+
+![](images/bda6c5b92f87009d964f95a4646905af03831178f9e91fbd7bee4bb6c68c4c37.jpg)
+(c)
+
+![](images/4849de8c3223210a5901000ae243173f9083156dc3a2fb7c986f77aa3396d29a.jpg)
+(d)
+
+图 6.1 SLAM 最大似然估计中局部极小值的示例。图中展示了位姿图 SLAM 问题（6.9）的一个真实世界实例的多个局部极小值；机器人在 (a) 所示的多层停车场中导航。(b) 为使用 SE-Sync [937] 计算的（6.9）的正确解，即全局最优解；(c) 和 (d) 则展示了局部优化方法以随机采样的起点初始化时得到的次优局部极小值示例。（(a) 图由 [400] 转载。）
+
+本节简要介绍 SLAM 的可认证正确估计方法。首先考察 Shor 松弛，它是构造支撑可认证估计技术之凸松弛的基本工具之一。接着说明如何应用 Shor 松弛，针对 PGO 这一基本问题构造可认证正确估计方法 SE-Sync。最后讨论 SE-Sync 和 Shor 松弛向更广泛 SLAM 问题的扩展。
+
+## 6.1.1 Shor 松弛
+
+本小节介绍 Shor 松弛。这是我们将用来构造支撑可认证估计器之凸松弛的基本工具之一。
+
+简言之，Shor 松弛是一种为二次约束二次规划（quadratically constrained quadratic program，QCQP）构造凸松弛的过程；QCQP 是指目标函数与约束函数均为二次函数的优化问题。如下一节将看到，许多常见 SLAM 表述均可写成 QCQP。
+
+我们先说明 Shor 松弛如何应用于一般 QCQP，再在下一节将其具体化到 SLAM。考虑以下 QCQP：
+
+$$
+\begin{array}{r l} p ^ {*} = \min _ {\boldsymbol {x} \in \mathbb {R} ^ {n}} \boldsymbol {x} ^ {\top} \boldsymbol {C} \boldsymbol {x} \\ \mathrm{s.t.} \boldsymbol {x} ^ {\top} \boldsymbol {A} _ {i} \boldsymbol {x} = b _ {i} & i = 1, \ldots , m. \end{array}\tag{QCQP}
+$$
+
+其中，$C , A _ { 1 } , \ldots , A _ { m } \in \mathbb { S } ^ { n }$ 是对称矩阵，且 $\pmb { b } = ( b _ { 1 } , \dots , b _ { m } ) \in \mathbb { R } ^ { m }$ 是向量。我们将通过一系列简单代数变换，说明如何产生 (QCQP) 的凸松弛。
+
+首先，若 $M \in \mathbb { S } ^ { n }$ 为任意对称矩阵，则可利用迹的循环性质，将由 $M$ 确定的二次型 $x ^ { \top } M x$ 重写为
+
+$$
+\boldsymbol {x} ^ {\top} \boldsymbol {M} \boldsymbol {x} = \operatorname{tr} \left(\boldsymbol {x} ^ {\top} \boldsymbol {M} \boldsymbol {x}\right) = \operatorname{tr} \left(\boldsymbol {M} \boldsymbol {x} \boldsymbol {x} ^ {\top}\right).\tag{6.1}
+$$
+
+将式（6.1）应用于 (QCQP)，可得其等价形式：
+
+$$
+\begin{array}{r l} p ^ {*} = \min _ {\boldsymbol {x} \in \mathbb {R} ^ {n}} \mathrm{tr} \left(\boldsymbol {C x x} ^ {\top}\right) \\ \text {s.t.} \mathrm{tr} \left(\boldsymbol {A} _ {i} \boldsymbol {x x} ^ {\top}\right) = b _ {i}, & i = 1, \ldots , m. \end{array}\tag{6.2}
+$$
+
+现在注意到，决策变量 $x$ 仅通过形如 $\pmb { X } \triangleq \pmb { x x } ^ { \top }$ 的外积进入问题（6.2）；按构造，每个这样的矩阵 $X$ 都是对称、秩为 1 且半正定的。反之，若 $\pmb { X } \in \mathbb { S } _ { + } ^ { n }$ 是半正定矩阵且 $\operatorname{rank} ( X ) = 1$，则容易证明（考虑对称特征分解即可）对某个 $\pmb { x } \in \mathbb { R } ^ { n }$，$X$ 可作形如 $\pmb { X } = \pmb { x } \pmb { x } ^ { \top }$ 的对称分解。综合这些观察，可得等价关系
+
+$$
+\boldsymbol {X} \in \mathbb {S} _ {+} ^ {n} \text { and } \operatorname{rank} (\boldsymbol {X}) = 1 \quad \Longleftrightarrow \quad \exists \boldsymbol {x} \in \mathbb {R} ^ {n} \text { such   that } \boldsymbol {X} = \boldsymbol {x x} ^ {\top}.\tag{6.3}
+$$
+
+根据式（6.3），问题（6.2）等价于
+
+$$
+\begin{array}{c} p ^ {*} = \min _ {\boldsymbol {X} \in \mathbb {S} ^ {n}} \operatorname{tr} \left(\boldsymbol {C X}\right) \\ \text {s.t.} \operatorname{tr} \left(\boldsymbol {A} _ {i} \boldsymbol {X}\right) = b _ {i}, \quad i = 1, \ldots , m, \\ \boldsymbol {X} \succeq 0, \\ \operatorname{rank} \left(\boldsymbol {X}\right) = 1. \end{array}\tag{6.4}
+$$
+
+至此，问题（6.2）和（6.4）完全等价；但表述（6.4）的优势在于，它揭示了大量有用结构。事实上，（6.4）中的目标函数和约束函数都是关于（矩阵）决策变量 $X$ 的线性函数，而半正定约束 $X \succeq 0$ 是凸约束。因此，求解（6.4）的唯一困难来自（非凸的）秩约束。
+
+Shor 松弛 [1011] 只需舍弃（6.4）中的秩约束，便得到 (QCQP) 的如下凸松弛：
+
+$$
+\begin{array}{c} d ^ {*} = \min _ {\boldsymbol {X} \in \mathbb {S} ^ {n}} \operatorname{tr} (\boldsymbol {C X}) \\ \text {s.t.} \operatorname{tr} (\boldsymbol {A} _ {i} \boldsymbol {X}) = b _ {i}, \quad i = 1, \ldots , m, \\ \boldsymbol {X} \succeq 0. \end{array}\tag{SDP}
+$$
+
+注意，(SDP) 是在一组线性等式约束下，在半正定矩阵集合上最小化线性函数；这种形式的问题称为半正定规划。半正定规划（SDP）是凸优化问题，可在多项式时间内求解。
+
+现在考察问题 (QCQP) 与其凸松弛 (SDP) 的关系。首先注意到，我们通过扩展 (QCQP) 的可行集，即去除（6.4）中的秩约束，得到 (SDP)；确实，易知 (QCQP) 中的每个可行点 $\mathbf { x } \in \mathbb { R } ^ { n }$ 都可提升为 (SDP) 的相应可行点 $X \triangleq x x ^ { \mathsf { T } }$。<sup>1</sup> 因此，(QCQP) 和 (SDP) 的最优值满足：
+
+$$
+d ^ {*} \leq p ^ {*},\tag{6.5}
+$$
+
+因为后一个问题在更大的可行集上最小化同一目标函数。
+
+不等式（6.5）已经提供了一种非常有用的方法，用于评估 (QCQP) 候选解的质量。设 $\hat { \pmb x } \in \mathbb { R } ^ { n }$ 是 (QCQP) 的一个可行点；例如，$\hat{x}$ 可能由局部优化得到。令 $f ( \pmb { x } ) \triangleq \pmb { x } ^ { \top } C \pmb { x }$ 为目标函数，则不等式（6.5）意味着，可按下式界定 $\hat{x}$ 作为 (QCQP) 解的次优性 $f ( \hat { \pmb x } ) - \boldsymbol p ^ { * }$：
+
+$$
+f (\hat {\boldsymbol {x}}) - p ^ {*} \leq f (\hat {\boldsymbol {x}}) - d ^ {*}.\tag{6.6}
+$$
+
+注意，(QCQP) 的最优值 $p ^ { * }$ 一般极难计算，而通过求解松弛 (SDP) 可以高效计算最优值 $d ^ { * }$。因此，不等式（6.6）给出了一种实用途径：无须知道 $p ^ { * }$ 本身，即可界定 $\hat{x}$ 的次优性。特别是，若（6.6）右端很小，就可以断定 $x$ 是 (QCQP) 的近似最优解。
+
+此外，若求解松弛 (SDP)，且所得极小化器 $X ^ { * } = x ^ { * } x ^ { * \top }$ 恰好秩为 1，则立刻可知向量 $\pmb { x } ^ { * } \in \mathbb { R } ^ { n }$ 是原始（非凸）问题 (QCQP) 的全局极小化器（因为 $\pmb { x } ^ { * }$ 在 (QCQP) 中可行，且在（6.6）中满足 $f ( \pmb { x } ^ { * } ) = d ^ { * }$）。如后文所示，这种有利情形实际上在许多机器人状态估计任务中经常出现，使我们能够由松弛 (SDP) 的解恢复非凸问题 (QCQP) 的精确全局最优解。
+
+在实践中，使用现成求解器求解大规模 SDP 仍可能很慢或占用大量内存，因此常为大规模机器人应用开发专用求解器，例如下文将介绍的 SE-Sync。
+
+## 6.1.2 SE-Sync：可认证正确的位姿图优化
+
+本小节说明如何应用 Shor 松弛，为求解位姿图优化（pose-graph optimization，PGO）这一基本问题开发可认证正确算法 SE-Sync。PGO 是最简单且最常用的 SLAM 表述之一，因而为说明可认证估计算法的构造提供了自然且具体的例子。此外，PGO 是首个被证明适用于凸松弛的 SLAM 表述 [149, 151, 939]；相应思想也已被证明可推广到广泛的 SLAM 问题，后文将予以讨论。
+
+我们的推导分为三个阶段。首先说明如何将 PGO 形式化为最大似然估计实例，并将其化简为 QCQP。接着推导 PGO 的 Shor SDP 松弛，并且至关重要地说明：当测量噪声充分小时，该松弛实际上是精确的；这意味着可以通过求解其（凸）SDP 松弛恢复 PGO 的全局最优解。最后介绍一种利用结构的专用优化算法，使我们能在实践中求解这一 SDP 松弛的大规模实例。
+
+## 6.1.2.1 位姿图优化：QCQP 表述
+
+位姿图优化（PGO）在 $d$ 维空间中（SLAM 通常取 $d = 2$ 或 3），根据它们之间一组相对位姿的带噪测量 $\tilde { \mathbf { T } } _ { i j } \approx \mathbf { \cal { T } } _ { i } ^ { - 1 } \mathbf { \cal { T } } _ { j }$，估计一组 $n$ 个未知位姿 $T _ { 1 } , \ldots , T _ { n } \in { \mathrm { S E } } ( d )$ 的取值。实践中，未知位姿 $T _ { 1 } , \ldots , T _ { n }$ 描述机器人轨迹（即在机器人轨迹的离散时刻进行采样），而测量 $\tilde { \pmb { T } } _ { i j }$ 由 SLAM 前端获得，例如通过 LiDAR 扫描匹配、轮式里程计或三维计算机视觉技术获得。本小节说明如何通过最大似然估计将该估计问题形式化。将会看到，在关于噪声作出适当假设时，所得优化问题是 QCQP。
+
+![](images/511c5728c6b53730be52eaf0d6bb3feba6c37c575039c7ec017f45cd8f672321.jpg)
+图 6.2 位姿图示例。这里，顶点与待估未知位姿 $T _ { i } = ( t _ { i } , R _ { i } ) \in \mathrm { S E } ( d )$ 一一对应；有向边则与它们之间相对位姿的一组带噪测量 $\tilde { \pmb { T } } _ { i j }$ ≈ ${ \pmb T } _ { i } ^ { - 1 } { \pmb T } _ { j }$ 一一对应。
+
+首先，常可方便地使用按如下方式构造的位姿图 $\overrightarrow { \mathcal { G } }$ 来建模定义此估计问题的数据。令 $\mathcal { G } = ( \nu , \mathcal { E } )$ 为简单无向图，其节点 $i$ 与未知位姿 $T_i$ 一一对应，其边 $\{ i , j \} \in { \mathcal { E } }$ 与可用测量集合一一对应。<sup>3</sup> 不失一般性，假定 $\mathcal { G }$ 是连通的。<sup>4</sup> 随后，对 $\mathcal { G }$ 的每条边指定方向（参见图 6.2），即可从 $\mathcal { G }$ 得到位姿图 $\vec { \mathcal { G } } = ( \nu , \vec { \mathcal { E } } )$。按约定，描述位姿 $T_j$ 在位姿 $T_i$ 坐标系中取值的（带噪）测量 $\tilde { \pmb { T } } _ { i j }$，对应于从 $i$ 指向 $j$ 的有向边。
+
+为将 PGO 形式化为最大似然估计，必须为可用测量 $\{ \tilde { T } _ { i j } \}$ 假设一个噪声模型。为此，我们使用各向同性 Langevin 分布 $\mathcal { L } ( M , \kappa )$：它是定义在 $\mathrm { S O } ( d )$ 上的指数族分布，其概率密度函数为
+
+$$
+p (\boldsymbol {R}; \boldsymbol {M}, \kappa) = \frac {1}{c _ {d} (\kappa)} \exp \left(\kappa \mathrm{tr} \left(\boldsymbol {M} ^ {\top} \boldsymbol {R}\right)\right),\tag{6.7}
+$$
+
+其中 $M \in \operatorname { S O } ( d )$ 和 $\kappa \geq 0$ 为参数，$c _ { d } ( \kappa )$ 是归一化常数。注意，$M$ 起位置参数（称为众数）的作用，而 $\kappa \geq 0$ 是标量集中参数。各向同性 Langevin 分布在二维和三维中具有特别简单的生成描述：为生成样本 $\tilde { \pmb { R } } \sim \mathcal { L } ( \pmb { M } , \kappa )$，先从圆周上的 von Mises 分布采样旋转角 $\theta \sim$ vonMises $( 0 , 2 \kappa )$，然后在 $d = 2$ 时令 $\tilde { \mathbf { R } } = M \cdot R ( \theta )$，或在 $d = 3$ 时令 $\tilde { \pmb { R } } = M \mathrm { e x p } ( \theta \pmb { v } ^ { \wedge } )$，其中 $\pmb { v } \sim \mathcal { U } ( S ^ { 2 } )$ 是均匀采样的旋转轴 [937]。直观上，可将此分布看作定义在旋转这一非欧流形上的高斯分布类比。
+
+给定一个位姿图 $\vec { \mathcal { G } } = ( \nu , \vec { \varepsilon } )$，假设每个测量 $\tilde { \pmb { T } } _ { i j } = ( \tilde { \pmb { t } } _ { i j } , \tilde { \pmb { R } } _ { i j } ) \in \mathrm { S E } ( d )$ 均由以下概率生成模型采样得到：
+
+$$
+\begin{array}{r l r} & {\tilde {\pmb {t}} _ {i j} = \bar {\pmb {t}} _ {i j} + \pmb {t} _ {i j} ^ {\epsilon}, \qquad \pmb {t} _ {i j} ^ {\epsilon} \sim \mathcal {N} (0, \tau_ {i j} ^ {- 1} I _ {d}), \qquad \forall (i, j) \in \overrightarrow {\mathcal {E}},} \\ & {\tilde {\pmb {R}} _ {i j} = \bar {\pmb {R}} _ {i j} \pmb {R} _ {i j} ^ {\epsilon}, \qquad \pmb {R} _ {i j} ^ {\epsilon} \sim \mathcal {L} (\mathbf {I} _ {d}, \kappa_ {i j}),} \end{array}\tag{6.8}
+$$
+
+其中，$\bar { T } _ { i j } = ( \bar { t } _ { i j } , \bar { R } _ { i j } ) \in \mathrm { S E } ( d )$ 是位姿 $T_i$ 与 $T_j$ 间相对位姿的真实（潜在）值。模型（6.8）假定第 $ij$ 个测量的平移分量 $\tilde { t } _ { i j }$ 受集中参数为 $\tau _ { i j } > 0$ 的加性零均值各向同性高斯噪声污染，而旋转分量 $\tilde { R } _ { i j }$ 则受众数为 $\mathbf { I } _ { d }$、集中参数为 $\kappa _ { i j } \geq 0$ 的乘性各向同性 Langevin 噪声污染。
+
+采用噪声模型（6.8），而非第 2 章提到的定义在一般李群上的更“通用”的指数化高斯噪声模型，主要是因为其关联的最大似然估计具有特别简单的代数形式。实际上，给定从（6.8）采样得到的一组带噪测量 $\tilde { \mathbf { { T } } } _ { i j }$，直接计算可得关联的最大似然估计为
+
+$$
+\begin{array}{c} \text {问题 6.1（位姿图优化）} \\ p _ {\mathrm{MLE}} ^ {*} = \min_ {\substack {\boldsymbol {t} _ {i} \in \mathbb {R} ^ {d} \\ \boldsymbol {R} _ {i} \in \mathrm{SO} (d) (i, j) \in \overrightarrow {\mathcal {E}}}} \sum_ {(i, j) \in \overrightarrow {\mathcal {E}}} \kappa_ {i j} \| \boldsymbol {R} _ {j} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {R}} _ {i j} \| _ {F} ^ {2} + \tau_ {i j} \left\| \boldsymbol {t} _ {j} - \boldsymbol {t} _ {i} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {t}} _ {i j} \right\| _ {2} ^ {2}. \end{array}\tag{6.9}
+$$
+
+特别地，注意（6.9）中的目标函数是简单的（二次）线性最小二乘损失。此外，约束 $R _ { i } \in \mathrm { S O } ( d )$ 在平面情形（$d = 2$）和三维情形（$d = 3$）中均可写成二次约束。下一小节将利用这一事实，经由 Shor 松弛推导问题 6.1 的凸松弛。
+
+## 6.1.2.2 将 Shor 松弛应用于位姿图优化
+
+本小节说明如何应用 Shor 松弛，导出 PGO 问题 6.1 的凸松弛。
+
+**化简最大似然估计器。** 第一步是将问题 6.1 改写为只涉及旋转的更紧凑形式，并揭示优化问题（6.9）与构造它的底层图 $\mathcal { G }$、$\vec { \mathcal { G } }$ 之间的对应关系。为此，引入由这些图构造的若干矩阵；关于（代数）图论的入门知识，特别是关联矩阵和拉普拉斯矩阵，请参阅下一页的专栏。
+
+## 专栏 6.1：代数图论要素
+
+代数图论研究如何使用代数工具（例如矩阵、向量）表示、分析和从图中提取信息。这里回顾一些基本概念，以支撑本章所作的说明和联系。同时也请读者参阅第 1 章，那里讨论了图与概率图模型之间的联系。
+
+有向图 $\overrightarrow { \mathcal { G } }$ 是二元组 $( \nu , \mathcal { E } )$，其中 $\nu$ 是有限节点集合，$\mathcal { E }$ 是边的集合，每条边包含一对有序节点。边 $e \in { \mathcal { E } }$ 形如 $e = ( i , j )$，表示连接节点 $i$ 和 $j$ 的边 $e$ 离开节点 $i$ 并指向节点 $j$（$i$ 是边的尾部，$j$ 是边的头部）。
+
+对于具有 $n$ 个节点和 $m$ 条边的图，有向图 $\vec { \mathcal { G } }$ 的关联矩阵 $\pmb { A } \in \mathbb { R } ^ { m \times n }$ 是元素属于 $\{ - 1 , 0 , + 1 \}$、描述图结构的矩阵。$A$ 的每一行对应一条边，而对应边 $e = ( i , j )$ 的行仅有两个非零元素：第 $i$ 列为 $-1$，第 $j$ 列为 $+1$。尽管更常见的关联矩阵定义将边置于列中，即使用这里 $A$ 的转置，但为保持与第 1 章雅可比矩阵的一些对称性，这里采用上述定义。例如，图 6.2 的关联矩阵为
+
+$$
+\boldsymbol {A} = \left[ \begin{array}{l l l l l l l} x _ {1} & x _ {2} & x _ {3} & x _ {4} & x _ {5} & x _ {6} & x _ {7} \\ - 1 & + 1 & & & & & \\ & - 1 & + 1 & & & & \\ & & - 1 & + 1 & & & \\ & & & - 1 & + 1 & & \\ & & & & - 1 & + 1 & \\ & & & & & - 1 & + 1 \\ & + 1 & & & - 1 & & \\ + 1 & & & & & - 1 \end{array} \right] \begin{array}{l} e _ {1 2} \\ e _ {2 3} \\ e _ {3 4} \\ e _ {4 5} \\ e _ {5 6} \\ e _ {6 7} \\ e _ {5 2} \\ e _ {6 1} \end{array}\tag{6.10}
+$$
+
+拉普拉斯矩阵 $L \in \mathbb { R } ^ { n \times n }$ 定义为 $L \triangleq A ^ { \intercal } A$，同样刻画图的连通性。具体而言，$L$ 的第 $i$ 个对角元素对应图中第 $i$ 个节点的度，即与节点 $i$ 相连的节点数；而位置 $( i , j )$ 的非对角元素，若存在一条不论方向如何均连接节点 $i$ 和 $j$ 的边，则等于 $-1$，否则为零。例如，图 6.2 的拉普拉斯矩阵为
+
+$$
+\boldsymbol {L} = \left[ \begin{array}{c c c c c c c} x _ {1} & x _ {2} & x _ {3} & x _ {4} & x _ {5} & x _ {6} & x _ {7} \\ + 2 & - 1 & & & & - 1 & \\ - 1 & + 3 & - 1 & & - 1 & & \\ & - 1 & + 2 & - 1 & & & \\ & & - 1 & + 2 & - 1 & & \\ & - 1 & & - 1 & + 3 & - 1 & \\ - 1 & & & & - 1 & + 3 & - 1 \\ & & & & & - 1 & + 1 \end{array} \right] \begin{array}{c} x _ {1} \\ x _ {2} \\ x _ {3} \\ x _ {4} \\ x _ {5} \\ x _ {6} \\ x _ {7} \end{array}\tag{6.11}
+$$
+
+需要指出，拉普拉斯矩阵不再保留图中边的方向信息，因为只要存在连接相应节点的边，不论其方向，非对角元素即为 $-1$。
+
+拉普拉斯矩阵的最小特征值始终等于零，对应特征向量为所有元素均为一的向量（每行元素之和为零，故易知 $\pmb { L } \cdot \mathbf { 1 } = \mathbf { 0 }$）。零特征值的数目恰对应图的连通分量数：连通图，即任意一对节点之间不顾边方向均存在边路径的图，只有一个零特征值；由两个不连通子图组成的图有两个零特征值，依此类推。此外，对连通图而言，第二小特征值衡量图的连通程度，也称为图的代数连通度或 Fiedler 值。
+
+定义若干与图拉普拉斯矩阵相关、后续推导将使用的关键矩阵。令平移权重图 $\mathcal { W } ^ { \tau } = ( \mathcal { V } , \mathcal { E } , \{ \tau _ { i j } \} )$ 为加权无向图，其节点集为 $\nu$、边集为 $\mathcal { E }$，且对 $\{ i , j \} \in { \mathcal { E } }$ 的边权重为 $\tau _ { i j }$；以 $\pmb { L } ( \mathcal { W } ^ { \tau } ) \in \mathbb { S } _ { + } ^ { n }$ 表示其拉普拉斯矩阵：
+
+$$
+\boldsymbol {L} (\mathcal {W} ^ {\tau}) _ {i j} = \left\{ \begin{array}{l l} \sum_ {\{i, k \} \in \mathcal {E}} \tau_ {i k}, & i = j, \\ - \tau_ {i j}, & \{i, j \} \in \mathcal {E}, \\ 0, & \{i, j \} \notin \mathcal {E}. \end{array} \right.\tag{6.12}
+$$
+
+这只是上文所定义拉普拉斯矩阵的加权版本。类似地，以 $L ( \tilde { G } ^ { \rho } ) \in \mathbb { S } _ { + } ^ { d n }$ 表示由旋转测量 $\tilde { R } _ { i j }$ 和精度 $\kappa _ { i j }$ 确定的 connection Laplacian；它是如下定义的对称 $( d \times d )$ 分块结构矩阵：
+
+$$
+\boldsymbol {L} (\tilde {G} ^ {\rho}) _ {i j} \triangleq \left\{ \begin{array}{l l} \Bigl (\sum_ {\{i, k \} \in \mathcal {E}} \kappa_ {i k} \Bigr) \mathbf {I} _ {d}, & i = j, \\ - \kappa_ {i j} \tilde {\boldsymbol {R}} _ {i j}, & (i, j) \in \overrightarrow {\mathcal {E}}, \\ - \kappa_ {j i} \tilde {\boldsymbol {R}} _ {j i} ^ {\intercal}, & (j, i) \in \overrightarrow {\mathcal {E}}, \\ \mathbf {0} _ {d \times d}, & \{i, j\} \notin \mathcal {E}. \end{array} \right.\tag{6.13}
+$$
+
+还定义若干由平移观测集合 $\tilde { t } _ { i j }$ 构造的矩阵。令 $\tilde { V } \in \mathbb { R } ^ { n \times d n }$ 为 $( 1 \times d )$ 分块结构矩阵，其 $( i , j )$ 分块定义为
+
+$$
+\tilde {\boldsymbol {V}} _ {i j} \triangleq \left\{ \begin{array}{l l} \sum_ {\{k \in \mathcal {V} | (j, k) \in \overrightarrow {\mathcal {E}} \}} \tau_ {j k} \widetilde {\boldsymbol {t}} _ {j k} ^ {\mathsf {T}}, & i = j, \\ - \tau_ {j i} \widetilde {\boldsymbol {t}} _ {j i} ^ {\mathsf {T}}, & (j, i) \in \overrightarrow {\mathcal {E}}, \\ 0 _ {1 \times d}, & \text {otherwise}, \end{array} \right.\tag{6.14}
+$$
+
+令 $\tilde { D } \in \mathbb { R } ^ { m \times d n }$ 为 $( 1 \times d )$ 分块结构矩阵，其行和列分别以 $e \in { \vec { \mathcal { E } } }$ 和 $k \in \mathcal V$ 索引，且其 $( e , k )$ 分块由下式给出：
+
+$$
+\tilde {\boldsymbol {D}} _ {e k} \triangleq \left\{ \begin{array}{l l} - \widetilde {\boldsymbol {t}} _ {k j} ^ {\mathsf {T}}, & e = (k, j) \in \overrightarrow {\mathcal {E}}, \\ \boldsymbol {0} _ {1 \times d}, & \text { otherwise }, \end{array} \right.\tag{6.15}
+$$
+
+并令 $\Omega \triangleq \operatorname { D i a g } ( \tau _ { e _ { 1 } } , \dots , \tau _ { e _ { m } } ) \in \mathbb { S } ^ { m }$ 表示由平移测量精度构成的对角矩阵。最后，还将旋转和平移状态估计汇总到分块矩阵 $R \triangleq \left( R _ { 1 } \quad \cdots \quad R _ { n } \right) \in { \mathrm { S O } } ( d ) ^ { n } \subset \mathbb { R } ^ { d \times d n }$ 和 $\pmb { t } \triangleq \left( \pmb { t } _ { 1 } \quad \ldots \quad \pmb { t } _ { n } \right) \in \mathbb { R } ^ { d n }$ 中。
+
+有了这些定义，回到问题 6.1。注意，若固定旋转状态 $\pmb { R } _ { 1 } , \ldots , \pmb { R } _ { n }$ 的取值，则问题（6.9）化为关于剩余平移决策变量 $\boldsymbol { t } _ { 1 } , \ldots , \boldsymbol { t } _ { n } \in \mathbb { R } ^ { d }$ 的线性最小二乘问题。因此，可以将平移状态的最优赋值 $\pmb t ^ { * } ( R )$ 解为旋转状态 $R$ 的函数：
+
+$$
+\boldsymbol {t} ^ {*} (\boldsymbol {R}) = - \operatorname{vec} \left(\boldsymbol {R} \tilde {\boldsymbol {V}} ^ {\top} \boldsymbol {L} \left(\mathcal {W} ^ {\tau}\right) ^ {\dagger}\right).\tag{6.16}
+$$
+
+将最优赋值（6.16）代入（6.9），即可从位姿图 SLAM 的 MLE 中解析消去平移状态，得到下列仅涉及旋转状态的简化（但等价）问题：
+
+问题 6.2（仅旋转位姿图优化）
+
+$$
+p _ {\mathrm{MLE}} ^ {*} = \min _ {\boldsymbol {R} \in \mathrm{SO} (d) ^ {n}} \operatorname{tr} \left(\tilde {\boldsymbol {Q}} \boldsymbol {R} ^ {\mathsf {T}} \boldsymbol {R}\right)\tag{6.17a}
+$$
+
+$$
+\tilde {\boldsymbol {Q}} = \boldsymbol {L} (\tilde {G} ^ {\rho}) + \tilde {\boldsymbol {D}} ^ {\mathsf {T}} \boldsymbol {\Omega} ^ {\frac {1}{2}} \boldsymbol {\Pi} \boldsymbol {\Omega} ^ {\frac {1}{2}} \tilde {\boldsymbol {D}},\tag{6.17b}
+$$
+
+其中，$\Pi \in \mathbb { R } ^ {m \times m}$ 是到 $\overrightarrow {\mathcal { G } }$ 的加权关联矩阵 $A ( \overrightarrow {\mathcal { G } } ) \Omega ^ { \frac { 1 } { 2 } }$ 的核空间 $\ker ( A ( { \overrightarrow { \mathcal { G } } } ) \Omega ^ { \frac { 1 } { 2 } } )$ 的正交投影矩阵。
+
+注意，（6.17）只涉及 $n$ 个旋转矩阵，而非 $n$ 个位姿；该问题现在类似于标准多旋转平均问题 [435]，但数据矩阵 $\tilde { Q }$ 的表达式更为复杂。从更技术性的角度看，尽管 $\Pi$ 一般是稠密的，利用它由图 $\overrightarrow { \mathcal { G } }$ 导出的事实，可证明它具有如下分解：
+
+$$
+\boldsymbol {\Pi} = \mathbf {I} _ {m} - \boldsymbol {\Omega} ^ {\frac {1}{2}} \bar {\boldsymbol {A}} (\overrightarrow {\mathcal {G}}) ^ {\top} \boldsymbol {L} ^ {- \top} \boldsymbol {L} ^ {- 1} \bar {\boldsymbol {A}} (\overrightarrow {\mathcal {G}}) \boldsymbol {\Omega} ^ {\frac {1}{2}}\tag{6.18}
+$$
+
+其中，$\bar { A } ( \vec { \mathcal { G } } ) \Omega ^ { \frac { 1 } { 2 } } = L Q$ 是 $\bar { A } ( \vec { \mathcal { G } } ) \Omega ^ { \frac { 1 } { 2 } }$ 的薄 LQ 分解，$\bar { A } ( \vec { \mathcal { G } } )$ 是从 $\overrightarrow { \mathcal { G } }$ 的关联矩阵 $A ( { \overrightarrow { \mathcal { G } } } )$ 删除一行得到的约化关联矩阵。注意，表达式（6.18）仅需要下三角因子 $L$；只要底层图 $\vec { \mathcal { G } }$ 是稀疏的，该因子也是稀疏的，并可在实践中高效获得。数据矩阵 $\tilde { Q }$ 的稀疏分解（6.17b）–（6.18）将在实现高效优化方法时发挥关键作用（参见第 6.1.2.3 节）。
+
+**构造松弛。** 现在利用简化形式（6.17），推导实践中要求解的问题 6.1 的半正定松弛。
+
+首先将条件 $\pmb { R } \in \mathrm { S O } ( d ) ^ { n }$ 松弛为 $\pmb { R } \in \mathrm { O } ( d ) ^ { n }$。后一条件相较前一条件的优势在于，正交矩阵由一组（二次）正交归一约束定义，故问题 6.2 的正交松弛是齐次 QCQP。事实上，对于提取 $( d \times d )$ 分块结构矩阵 $M$ 的 $n$ 个对角块的线性映射
+
+$$
+\begin{array}{c} \text {BlockDiag} _ {d \times d} \colon \mathbb {R} ^ {d n \times d n} \to \mathbb {R} ^ {d \times d n} \\ \text {BlockDiag} _ {d \times d} (M) \triangleq (M _ {1 1}, \ldots , M _ {n n}) \end{array}\tag{6.19}
+$$
+
+可将（6.17）的正交松弛写成具有外在约束的形式：
+
+$$
+p _ {O} ^ {*} = \min _ {\boldsymbol {R} \in \mathbb {R} ^ {d \times d n}} \operatorname{tr} \left(\tilde {\boldsymbol {Q}} \boldsymbol {R} ^ {\intercal} \boldsymbol {R}\right) \quad \text {s.t.} \quad \operatorname{BlockDiag} _ {d \times d} (\boldsymbol {R} ^ {\intercal} \boldsymbol {R}) = (\mathbf {I} _ {d}, \dots , \mathbf {I} _ {d}).\tag{6.20}
+$$
+
+现在注意到，（6.20）具有与 (QCQP) 相似的结构，但其中向量 $x$ 被矩阵 $R$ 替代。在 (QCQP) 中，我们通过将项 $x x ^ { \mathsf { T } }$ 替换为合适的秩 1 矩阵 $X$ 并舍弃秩 1 约束来获得松弛；同样，可将（6.20）中的项 $R ^ { \intercal } R$ 替换为秩 $d$ 矩阵 $Z$ 并舍弃秩约束，由此得到简化 PGO 问题（6.17）的如下半正定松弛：
+
+问题 6.3（位姿图优化的半正定松弛）
+
+$$
+p _ {\mathrm{SDP}} ^ {*} = \min _ {\boldsymbol {Z} \in \mathbb {S} _ {+} ^ {d n}} \operatorname{tr} \left(\tilde {\boldsymbol {Q}} \boldsymbol {Z}\right) \quad \text {s.t.} \quad \operatorname{BlockDiag} _ {d \times d} (\boldsymbol {Z}) = (\mathbf {I} _ {d}, \ldots , \mathbf {I} _ {d}).\tag{6.21}
+$$
+
+如第 6.1.1 节所见，该构造立即蕴含 $p _ { \mathrm { M L E } } ^ { * } \geq p _ { O } ^ { * } \geq p _ { \mathrm { S D P } } ^ { * }$。此外，若求解 SDP 松弛（6.21）后，恢复的极小化器 $Z ^ { * } \in \mathbb { S } _ { + } ^ { d n }$ 具有形如 $Z ^ { * } = R ^ { * \mathsf { T } } R ^ { * }$ 的秩 $d$ 分解，且 $R ^ { * } \in \mathrm { S O } ( d ) ^ { n }$，则 $\pmb { R } ^ { * }$ 本身就是 PGO 问题 6.2 的全局最优解。使我们关注松弛（6.21）的显著事实在于，这种有利情形实际上会在实践中出现。具体而言，有如下定理（证明参见 [937]）：
+
+定理 6.1（由问题 6.3 精确恢复 PGO 解）令 $\bar { Q }$ 为使用（6.8）中的真值相对变换 $\bar { T } _ { i j }$ 构造的、形如（6.17b）的矩阵。存在常数 $\beta \triangleq \beta ( \bar { Q } ) > 0$，它依赖于 $\bar { Q }$，使得若 $\| \tilde { Q } - \bar { Q } \| _ { 2 } < \beta$，则：
+
+1. 半正定松弛问题 6.3 有唯一解 $Z ^ { * }$；且
+
+2. $Z ^ { * } = R ^ { * } { } ^ { \mathsf { T } } R ^ { * }$，其中 $R ^ { * } \in \mathrm { S O } ( d ) ^ { n }$ 是最大似然估计问题 6.2 的一个极小化器。
+
+简言之，定理 6.1 保证，只要污染可用测量 $\tilde { \pmb { T } } _ { i j }$ 的噪声不太大，就可通过求解 SDP 松弛（6.21）恢复问题 6.2 的全局极小化器 $\pmb { R } ^ { * }$，并经由（6.16）恢复问题 6.1 的全局极小化器 $( R ^ { * } , t ^ { * } )$。
+
+## 6.1.2.3 通过黎曼阶梯高效求解松弛
+
+作为半正定规划，问题 6.3 原则上可以高效求解，即在多项式时间内求解。然而实践中，存储和操作（6.21）中出现的稠密矩阵决策变量 $Z$ 的高计算代价，使通用内点法无法有效扩展到 $Z$ 维度超过几千的问题。不幸的是，机器人学和计算机视觉应用中出现的（6.21）实例，其规模通常比这一有效上限大一到两个数量级，远远超出通用技术的能力。因此，本小节开发一种利用结构的专用优化过程，以高效求解问题 6.3 的大规模实例。
+
+**利用低秩结构。** 我们方法背后的主要思想是利用问题 6.3 存在低秩解这一事实。具体而言，注意松弛（6.21）中的决策变量 $Z$ 虽是一般的高维半正定矩阵，但定理 6.1 保证，每当松弛精确时，我们所寻求的解 $Z ^ { * }$ 都可写成简洁的因子形式 $Z ^ { * } = R ^ { * } { } ^ { \mathsf { T } } R ^ { * }$。此外，即使精确性不成立，问题 6.3 的极小化器通常也具有不比 $d$ 大很多的秩 $r$，因而同样可以写成简洁的对称秩分解 $Z ^ { * } = Y ^ { * \mathsf { T } } \mathbf { Y } ^ { * }$，其中 $Y ^ { * } \in \mathbb { R } ^ { r \times d n }$。
+
+Burer 和 Monteiro [125, 124] 的奠基性工作提出了一种利用这类低秩解的优雅通用方法：将（6.21）中决策变量 $Z$ 的每一次出现都替换为秩 $r$ 的对称分解 $\pmb { Y } ^ { \top } \pmb { Y }$（其中 $\pmb { Y } \in \mathbb { R } ^ { r \times d n }$），从而得到（6.21）的 Burer--Monteiro 分解：
+
+$$
+p _ {\mathrm{SDPLR}} ^ {*} (r) = \min _ {\boldsymbol {Y} \in \mathbb {R} ^ {r \times d n}} \operatorname{tr} \left(\tilde {\boldsymbol {Q}} \boldsymbol {Y} ^ {\top} \boldsymbol {Y}\right) \quad \text {s.t.} \quad \operatorname{BlockDiag} _ {d \times d} (\boldsymbol {Y} ^ {\top} \boldsymbol {Y}) = (\mathbf {I} _ {d}, \ldots , \mathbf {I} _ {d}).\tag{6.22}
+$$
+
+注意，由于 $Y ^ { \top } Y$ 按构造是对称且半正定的，（6.22）不再需要显式施加原始 SDP（6.21）中的半正定约束。此外，还可注意到，该问题与所松弛的（6.20）高度相似，重要区别在于：现在矩阵 $Y$ 的大小为 $r \times dn$，而非 $d \times d n$，其中 $r > d$；换言之，与（6.20）相比，（6.22）在更高维空间中重新表述了该问题。
+
+若将（6.22）中的最大秩参数 $r$ 选得“较小”（即 $r \ll d n$），则 $\dim ( \mathbb { R } ^ { r \times d n } ) = r n d \ll ( d n + 1 ) d n / 2 = \dim ( \mathbb { S } _ { + } ^ { d n } )$；也就是说，（6.22）的搜索空间远低于（6.21）的搜索空间。因此，Burer 和 Monteiro 建议对低维非线性规划（6.22）应用快速非线性规划算法，搜索原始 SDP（6.21）极小化器 $Z ^ { * } = Y ^ { * } { } ^ { \mathsf { T } } Y ^ { * }$ 的低秩因子 $Y ^ { * } \in \mathbb { R } ^ { r \times d n }$。
+
+**利用几何结构。** 进一步将 $Y$ 划分为 $r \times d$ 个分块，即 $\pmb { Y } = ( \pmb { Y } _ { 1 } , \dots , \pmb { Y } _ { n } ) \in \mathbb { R } ^ { r \times d n }$，则（6.22）中的块对角约束等价于对所有 $i \in [ n ]$ 满足 $Y _ { i } ^ { \mathsf { T } } Y _ { i } = \mathbf { I } _ { d }$；从几何上看，该条件表示每个分块 $\pmb { Y } _ { i } \in \mathbb { R } ^ { r \times d }$ 的列构成一个正交归一标架。一般地，$\mathbb { R } ^ { p }$ 中所有正交归一 $k$-标架的集合为
+
+$$
+\operatorname{St} (k, p) \triangleq \left\{\boldsymbol {Y} \in \mathbb {R} ^ {p \times k} \mid \boldsymbol {Y} ^ {\top} \boldsymbol {Y} = \mathbf {I} _ {k} \right\},\tag{6.23}
+$$
+
+它构成一个光滑紧致矩阵流形，称为 Stiefel 流形。这意味着，等式约束非线性规划（6.22）等价于定义在 Stiefel 流形乘积上的如下无约束优化问题：
+
+问题 6.4（Burer--Monteiro 分解的 SDP 松弛作为流形优化）
+
+$$
+p _ {\mathrm{SDPLR}} ^ {*} (r) = \min _ {\boldsymbol {Y} \in \operatorname{St} (d, r) ^ {n}} \operatorname{tr} \left(\tilde {\boldsymbol {Q}} \boldsymbol {Y} ^ {\top} \boldsymbol {Y}\right).\tag{6.24}
+$$
+
+表述（6.22）和（6.24）是等价的，但后者具有重要的计算优势。特别是，认识到可行集是 Stiefel 流形的乘积后，便可以应用针对光滑流形优化的专用算法；与通用等式约束非线性规划技术相比，这些算法明显更简单、更快且更准确 [106]。
+
+**确保全局最优性。** 从问题 6.3 化简到问题 6.4，大幅缩小了待求解优化问题的规模，但代价是重新引入了二次正交归一约束（6.23），而这些约束是非凸的。因此，将问题 6.2 松弛为问题 6.4 是否真的带来收益并不显然，因为看起来我们可能只是用另一个困难的非凸优化问题替换了原来的问题。下面这个显著结果（改编自 Boumal 等人 [107]）为该方法提供了依据：
+
+定理 6.2（问题 6.4 全局最优性的一个充分条件）若 $Y \in { \mathrm { S t } } ( d , r ) ^ { n }$ 是问题 6.4 的一个（行）秩亏二阶临界点，则 $Y$ 是问题 6.4 的全局极小化器，且 $Z ^ { * } = Y ^ { \mathsf { T } } Y$ 是半正定松弛问题 6.3 的一个解。
+
+定理 6.2 直接启发出一种简单过程，即黎曼阶梯（Riemannian Staircase）：对问题 6.4 的一系列实例应用快速局部优化算法，以恢复问题 6.3 的解。简言之，从某个（较小的）初始最大秩 $r \geq d$ 开始，对（6.24）应用局部求解器（更准确地说，是二阶黎曼优化算法），恢复二阶临界点 $Y ^ { * } \in { \mathrm { S t } } ( d , r ) ^ { n }$。若 $Y ^ { * }$ 秩亏，则定理 6.2 证明了 $Y ^ { * }$ 是（6.24）的全局极小化器，且 $Z ^ { * } = Y ^ { * } { } ^ { \top } Y ^ { * }$ 是（6.21）的解。另一方面，若 $Y ^ { * }$ 不秩亏，则只需提高最大秩 $r$ 后重试。注意，对 $r \geq d n + 1$，每个 $\pmb { Y } \in \mathbb { R } ^ { r \times d n }$ 都（按行）秩亏，因此黎曼阶梯保证在有限次迭代后以最优解 $Y ^ { * }$ 终止。不过，通常只需一到两级“阶梯”。
+
+最后从实践角度说明，黎曼阶梯充当一种轻量级元算法，围绕实践中 SLAM 常用的同类快速（二阶）局部优化算法运行。因此，该方法在保证恢复全局最优解的同时，保留当前最先进 SLAM 技术的速度，从而兼得二者优势。
+
+## 6.1.2.4 舍入解
+
+刚才已经看到，黎曼阶梯提供了一种高效算法，用于恢复松弛问题 6.3 的解 $Z ^ { * } = Y ^ { * } { } ^ { \mathsf { T } } Y ^ { * }$ 的低秩因子 $Y ^ { * } \in \mathrm { S t } ( d , r ) ^ { n }$。然而，只要松弛（6.21）精确，我们理想上希望从 $Z ^ { * }$ 中提取 PGO 问题 6.2 的最优解 $R ^ { * } \in \mathrm { S O } ( d ) ^ { n }$；否则，希望提取可行的近似解 $\hat { R } \in \mathrm { S O } ( d ) ^ { n }$。本小节描述一种高效舍入过程：它直接在低秩因子 $\mathcal Y ^ { * }$ 上操作，而无须显式构造稠密的高维矩阵 $Z ^ { * }$。
+
+该方法的核心洞见是：当松弛（6.21）精确时，$R ^ { * }$、$Z ^ { * }$ 和 $Y ^ { * }$ 满足
+
+$$
+\boldsymbol {Y} ^ {* \top} \boldsymbol {Y} ^ {*} = \boldsymbol {Z} ^ {*} = \boldsymbol {R} ^ {* \top} \boldsymbol {R} ^ {*} .\tag{6.25}
+$$
+
+此时，式（6.25）意味着低秩因子 $\pmb { Y } ^ { * } \in \mathbb { R } ^ { r \times d n }$ 实际具有秩 $d$，因而可以对它计算薄奇异值分解，从 $Y ^ { * }$ 恢复 $\pmb { R } ^ { * }$。更一般地，当（6.21）不精确时，仍可通过截断奇异值分解从 $Y ^ { * }$ 恢复最优的秩-$d$ 近似 $\hat { \pmb { R } } \in \mathbb { R } ^ { d \times d n }$，然后将 $\hat { R }$ 的每个 $d \times d$ 分块投影到 $\mathrm { SO } ( d )$ 上（同样使用 SVD），从而得到问题 6.2 的可行近似解。
+
+<div class="mineru-algorithm" style="white-space: pre-wrap; font-family:monospace;">
+算法 3 SE-Sync 算法
+
+输入：初始点 $Y \in \text{St}(d, r_0)^n$，$r_0 \geq d + 1$。
+
+输出：最大似然估计问题 6.1 的可行估计 $\hat{T} \in \text{SE}(d)^n$，以及问题 6.1 最优值的下界 $p_{SDP}^*$。
+
+1：函数 SE-SYNC(Y)
+
+2：设置 $Y^* \leftarrow \text{RIEMANNIANSTAIRCASE}(Y)$。
+
+3：设置 $p_{SDP}^* \leftarrow F(\tilde{\boldsymbol{Q}}Y^{*T}Y^*)$。
+
+4：设置 $\hat{R} \leftarrow \text{ROUND SOLUTION}(Y^*)$。
+
+5：通过（6.16）恢复与 $\hat{R}$ 对应的最优平移估计 $\hat{t}$。
+
+6：设置 $\hat{T} \leftarrow (\hat{t}, \hat{R})$。
+
+7：返回 $\left\{\hat{T}, p_{SDP}^*\right\}$。
+
+8：结束函数
+</div>
+
+## 6.1.2.5 SE-Sync：完整算法
+
+将第 6.1.2.3 节的高效 SDP 优化方法与第 6.1.2.4 节的舍入过程结合起来，即得到 $S E { \mathrm { - } } S y n c$（算法 3），也就是我们的位姿图优化可认证正确算法 [937]。
+
+应用于 PGO 实例时，SE-Sync 返回最大似然估计问题 6.1 的可行点 $\hat { \pmb { T } } \in \operatorname { S E } ( d ) ^ { n }$，以及其最优值的下界 $p _ { \mathrm { S D P } } ^ { * } \leq p _ { \mathrm { M L E } } ^ { * }$。该下界又可按下式给出任意可行点 $\pmb { T } = ( \pmb { t } , \pmb { R } ) \in \mathrm { S E } ( d ) ^ { n }$ 作为问题 6.1 解时次优性的上界：
+
+$$
+F (\tilde {\boldsymbol {Q}} \boldsymbol {R} ^ {\mathsf {T}} \boldsymbol {R}) - p _ {\mathrm{SDP}} ^ {*} \geq F (\tilde {\boldsymbol {Q}} \boldsymbol {R} ^ {\mathsf {T}} \boldsymbol {R}) - p _ {\mathrm{MLE}} ^ {*} .\tag{6.26}
+$$
+
+此外，当问题 6.3 的松弛精确时，算法 3 返回的估计 ${ \hat { \pmb { T } } } = ( { \hat { \pmb { t } } } , { \hat { \pmb { R } } } ) \in \mathrm { S E } ( d ) ^ { n }$ 达到这一界：
+
+$$
+F (\tilde {\boldsymbol {Q}} \hat {\boldsymbol {R}} ^ {\mathsf {T}} \hat {\boldsymbol {R}}) = p _ {\mathrm{SDP}} ^ {*} .\tag{6.27}
+$$
+
+因此，事后验证（6.27）成立，即可为 $\hat { \pmb { T } }$ 作为问题 6.1 解的正确性提供计算证书。由此，SE-Sync 正如所声称的那样，是位姿图优化的可认证正确算法。
+
+SE-Sync 获得的可认证最优结果示例见图 6.3，详细讨论见 [937]。文献 [937] 还报告了运行时间分析，表明该算法至少与传统局部求解器一样快，甚至更快。
+
+![](images/7a5a9571709f218172aae8ff0fc3c9a0a0b3ee53daae4641c146fb07706a602b.jpg)
+(a) 球面
+
+![](images/aaf1f6d4699901277815ac984a83f7c880438b7121a49c040747f5c4dcba30a4.jpg)
+(b) 环面
+
+![](images/6bfb07c7d6120b7734a3a8fed4d179c48b86264a1ae5f1c916e7c4a1a7418076.jpg)
+(c) 网格
+
+![](images/6790fd8f3bdfdff3b31fe7848d1299c590f63f31edf61e3951c97bdf67ef381a.jpg)
+(d) 车库
+
+![](images/ade440c3c94d3284ecb2d400f9b0aa8e310b0d6837225d25ba5ec41238270015.jpg)
+(e) 隔间
+
+![](images/cb77664d0afcc4bad38680d357dbb6bfdc7e150381e561bb95b8116f7fcb528b.jpg)
+(f) 环
+
+图 6.3 位姿图优化基准数据集的全局最优解（源自 [937]）。
+
+## 6.1.3 基于路标的 SLAM
+
+上一节说明了如何为 PGO 获得快速可认证算法；本节说明同一推导可扩展到基于路标的 SLAM，具体是机器人对路标进行方位和距离，即相对位置测量的情形。
+
+令 $\pmb { m } _ { n + 1 } , \ldots , \pmb { m } _ { n + \ell } \in \mathbb { R } ^ { d }$ 为除 $n$ 个机器人位姿外还需估计的 $\ell$ 个路标位置。事实证明，这些新的路标变量可以方便地并入 SE-Sync 的现有实现。为此，将地图点变量视为纯平移变量，即没有旋转分量的位姿。
+
+假设有 $N _ { m }$ 个路标测量 $\left\{ \tilde { m } _ { i k } \right\}$，它们描述相对于机器人第 $i$ 个位姿的路标 $m_k$ 的相对位置。还假设这些测量受加性零均值各向同性高斯噪声污染，其形式与（6.8）中的平移测量相同：
+
+$$
+\tilde {\boldsymbol {m}} _ {i k} = \bar {\boldsymbol {m}} _ {i k} + \boldsymbol {m} _ {i k} ^ {\epsilon}, \quad \boldsymbol {m} _ {i k} ^ {\epsilon} \sim \mathcal {N} \left(0, \mu_ {i k} ^ {- 1} I _ {d}\right).\tag{6.28}
+$$
+
+为跟踪这些新测量，向位姿图 $\vec { \mathcal { G } }$ 添加一组新顶点 $\nu_m$ 和新边 $\vec { \mathcal { E } }_m$，它们分别与地图变量和路标测量一一对应。此外，以 $\overrightarrow { \mathcal { E } }_r$ 表示对应机器人位姿相对位姿测量（例如里程计）的边；假设这些测量遵循与（6.8）相同的测量模型。
+
+给定路标测量和相对位姿测量，最大似然估计问题变为：
+
+$$
+\begin{array}{l} \text {问题 6.5（基于路标的 SLAM）} \\ \min _ {\substack {\boldsymbol {R} _ {i} \in \mathrm{SO} (d) \\ \boldsymbol {t} _ {i} \in \mathbb {R} ^ {d}, \boldsymbol {m} _ {k} \in \mathbb {R} ^ {d}}} \sum_ {(i, j) \in \overrightarrow {\mathcal {E}} _ {r}} \kappa_ {i j} \| \boldsymbol {R} _ {j} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {R}} _ {i j} \| _ {F} ^ {2} + \tau_ {i j} \left\| \boldsymbol {t} _ {j} - \boldsymbol {t} _ {i} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {t}} _ {i j} \right\| _ {2} ^ {2} \\ \qquad + \sum_ {(i, k) \in \vec {\mathcal {E}} _ {m}} \mu_ {i k} \| \boldsymbol {m} _ {k} - \boldsymbol {t} _ {i} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {m}} _ {i k} \| _ {2} ^ {2}. \end{array}\tag{6.29}
+$$
+
+若将地图变量当作位姿平移变量，则上一节的其余推导可原样使用。通过应用 SE-Sync 算法可找到最优旋转变量，其中代价矩阵 $\tilde { Q }$ 经过修改以纳入地图变量的影响。特别地，权重矩阵 $\Omega$ 和测量矩阵 $\tilde { D }$ 重定义为：
+
+$$
+\begin{array}{c} \boldsymbol {\Omega} = \text {BlockDiag} (\boldsymbol {\Omega} _ {\tau}, \boldsymbol {\Omega} _ {\mu}), \\ \boldsymbol {\Omega} _ {\tau} = \text {Diag} (\tau_ {1}, \ldots , \tau_ {N _ {p}}), \\ \boldsymbol {\Omega} _ {\mu} = \text {Diag} (\mu_ {1}, \ldots , \mu_ {N _ {m}}), \end{array} \quad \tilde {\boldsymbol {D}} _ {e k} = \left\{ \begin{array}{l l} - \tilde {\boldsymbol {t}} _ {k j} ^ {T}, & e = (k, j) \in \overrightarrow {\mathcal {E}} _ {r}, \\ - \tilde {\boldsymbol {m}} _ {k j} ^ {T}, & e = (k, j) \in \overrightarrow {\mathcal {E}} _ {m}, \\ \mathbf {0} _ {1 \times d}, & \text {otherwise} \end{array} \right.\tag{6.30}
+$$
+
+此外，投影矩阵 $\Pi$ 也被修改，以计入新测量图 $\overrightarrow { \mathcal { G } } = ( \mathcal { V } \cup \mathcal { V } _ { m } , \overrightarrow { \mathcal { E } } _ { r } \cup \overrightarrow { \mathcal { E } } _ { m } )$ 的形式。注意，connection Laplacian $L ( { \tilde { G } } ^ { \rho } )$ 不受新地图测量影响。
+
+一旦找到最优旋转，位姿平移和地图点均可类似（6.16）以闭式恢复：
+
+$$
+\left[ \begin{array}{c c} \boldsymbol {t} ^ {* T} & \boldsymbol {m} ^ {* T} \end{array} \right] ^ {T} = - \mathrm{vec} \left(\boldsymbol {R} ^ {*} \tilde {\boldsymbol {V}} ^ {T} \boldsymbol {L} (\mathcal {W} ^ {\tau}) ^ {\dagger}\right),\tag{6.31}
+$$
+
+这里假设位姿平移变量和地图点已按适当次序排列，且 $\tilde { V }$ 和 $L ( \mathcal { W } ^ { \tau } ) ^ { \dagger }$ 也已类似（6.30）更新，以纳入地图点测量。
+
+典型 SLAM 问题中地图点常远多于位姿。因此，在 SE-Sync 表述中加入地图变量时，必须确保算法对问题中的地图点数仍保持高效。地图点数很大时，SE-Sync 的瓶颈成为构造代价矩阵 $\tilde { Q }$。研究表明，可采用经典 Schur 补技巧，确保该矩阵的构造时间复杂度相对于路标数是线性的 [465]。图 6.4(b) 清楚展示了这种线性关系，同时表明 SE-Sync 的其他组成部分的计算代价不随路标数增加。
+
+最后，已证明在该表述中加入路标会影响 SDP 松弛的精确性。特别是，增加路标数和位姿到地图测量图的连通性均能改善松弛精确性。更具体地说，它们提高给定问题拥有精确松弛时所允许的噪声水平。图 6.4(c) 展示了这些参数对一个简单 SLAM 问题的影响。
+
+![](images/44d924e1d39490d20a5e7d1d54d3f0c0c067b9aa7c4123e7b6a4b158c867631c.jpg)
+
+![](images/cd35af39aa4b4d1ba25000d9681025c961cfb26ec04d98bea7d7f74dc5aafa40.jpg)
+图 6.4 (a) 简单基于路标 SLAM 问题中局部极小值与全局极小值的示例。(b) (a) 所示示例的运行时间。运行时间随地图规模线性增加，瓶颈是数据矩阵 $\tilde Q$ 的构造（蓝色所示）。(c) 通过证书矩阵的余秩研究松弛精确性（当该度量为三时精确）。测量噪声设置为基准标准差，即平移 0.866 米、旋转 0.573 度，并按图中“Noise Level”乘数缩放。通常，问题保持精确时的噪声水平随地图点数和位姿到地图连通性增加而提高。源自 [465]（©2023 IEEE）。
+
+## 6.1.4 扩展：距离测量、各向异性噪声与离群值
+
+本节说明，上文工具，即 Shor 松弛和黎曼阶梯求解器，可扩展至其他 SLAM 问题（第 6.1.4.1 节）。此外，讨论用于得到半正定松弛的更一般工具，可将其理解为 Shor 松弛的推广；它们进一步扩展 SLAM 可认证算法的范围，但在求解所得 SDP 时带来额外挑战（第 6.1.4.2 节）。
+
+## 6.1.4.1 面向距离辅助 SLAM 的快速可认证算法
+
+上一节展示了如何为测量为相对位置和相对旋转的 SLAM 问题开发可认证算法。这里依据 [840] 的结果说明，同一方法可应用于包含距离测量的问题。具体地，假设可测量变量 $i$ 和 $j$ 之间的距离 $\tilde { r } _ { i j }$，例如两个机器人位姿之间，或路标与机器人位姿之间的距离。距离辅助 SLAM 的优化问题可表述如下：
+
+$$
+\begin{array}{l} \text {问题 6.6（距离辅助 SLAM）} \\ \min_ {\substack {\boldsymbol {R} _ {i} \in \mathrm{SO} (d) \\ \boldsymbol {t} _ {i} \in \mathbb {R} ^ {d}}} \sum_ {(i, j) \in \overrightarrow {\mathcal {E}}} \kappa_ {i j} \| \boldsymbol {R} _ {j} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {R}} _ {i j} \| _ {F} ^ {2} + \tau_ {i j} \left\| \boldsymbol {t} _ {j} - \boldsymbol {t} _ {i} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {t}} _ {i j} \right\| _ {2} ^ {2} \\ \qquad + \sum_ {(i, j) \in \overrightarrow {\mathcal {E}} _ {d}} \gamma_ {i j} \left(\| \boldsymbol {t} _ {j} - \boldsymbol {t} _ {i} \| - \tilde {r} _ {i j}\right) ^ {2} \end{array}\tag{6.32}
+$$
+
+问题 6.6 目标函数的第一行与前几节所用相同，即相对位姿测量，例如对应机器人里程计。该问题的区别是第二行包含距离测量 $\tilde { r } _ { i j }$ 的项（$\overrightarrow { \mathcal { E } } _ { d }$ 是存在距离测量的节点对 $( i , j )$ 的集合），并以这些测量的方差倒数 $\gamma _ { i j }$ 加权。仅距离测量 $\tilde { r } _ { i j }$ 的独特之处在于，它给出位姿 $i$ 和 $j$ 之间相对距离的信息，却不提供方位或相对朝向信息。问题 6.6 可建模多种实际 SLAM 问题，从对路标进行距离测量的基于路标 SLAM，到机器人之间进行相对距离测量的多机器人 SLAM。<sup>5</sup>
+
+将 Shor 松弛应用于问题 6.6 的困难在于，（6.32）不是 QCQP：展开平方项 $\big ( \| \pmb { t } _ { j } - \pmb { t } _ { i } \| - \widetilde { r } _ { i j } \big ) ^ { 2}$ 可知，该表达式因未平方范数项而不是关于变量 $t_i$ 和 $t_j$ 的二次式。为解决此问题，文献 [840] 提出一个优雅重表述，引入辅助单位向量 $b _ { i j }$，满足 $\| \pmb { b } _ { i j } \| = 1$：
+
+$$
+\begin{array}{c}\min_{\substack{\boldsymbol{R}_{i}\in \mathrm{SO}(d)\\ \boldsymbol{t}_{i}\in \mathbb{R}^{d}\\ \boldsymbol{b}_{ij}\in S^{d - 1}}}\sum_{(i,j)\in \overrightarrow{\mathcal{E}}}\kappa_{ij}\| \boldsymbol{R}_{j} - \boldsymbol{R}_{i}\tilde{\boldsymbol{R}}_{ij}\|_{F}^{2} + \tau_{ij}\left\| \boldsymbol{t}_{j} - \boldsymbol{t}_{i} - \boldsymbol{R}_{i}\tilde{\boldsymbol{t}}_{ij}\right\|_{2}^{2}\\ \\ +\sum_{(i,j)\in \overrightarrow{\mathcal{E}}_{d}}\gamma_{ij}\left\| \boldsymbol{t}_{j} - \boldsymbol{t}_{i} - \tilde{r}_{ij}\boldsymbol{b}_{ij}\right\|_{2}^{2}, \end{array}\tag{6.33}
+$$
+
+直观地，表述（6.33）也会推断具有距离测量 $\tilde { r } _ { i j }$ 的变量 $i$ 与 $j$ 之间的方位 $b _ { i j }$，进而将目标函数中相应项 $\| \pmb { t } _ { j } - \pmb { t } _ { i } - \tilde { r } _ { i j } \pmb { b } _ { i j } \| ^ { 2}$ 重写成距离--方位测量，与前几节所见测量相似。这样做的优点是（6.33）现在是 QCQP：目标函数最后一项关于未知量是二次的，新增的 $b _ { i j }$ 单位范数约束 $\| \pmb { b } _ { i j } \| ^ { 2 } = 1$ 也是二次的。随后可用 Shor 松弛将新表述松弛为 SDP，并用黎曼阶梯高效求解，得到 CORA [840]，即面向距离辅助 SLAM 的快速可认证算法。
+
+与先前考虑的位姿和路标 SLAM 问题不同，距离辅助 SLAM 问题（6.33）的 Shor 松弛在有界测量噪声下通常并不精确。具体而言，[840] 的经验研究显示，在多机器人情形中，除非机器人之间存在相对位姿测量，否则该松弛通常不精确，即机器人之间仅距离测量不足以获得精确松弛。不过，该松弛在多种实际 SLAM 问题中仍然精确，且能以可与局部求解器相比的运行时间计算可认证最优解。更一般地，Papalia 等人 [840] 表明，SLAM 问题底层图的连通性在很大程度上影响 SDP 松弛的精确性，[937, 465] 也观察到这一现象。第 6.2 节将看到，图连通性还影响 SLAM 估计的精度，从而带来关于 SLAM 问题非常有意义的图论见解。
+
+## 6.1.4.2 超越 Shor 松弛的可认证算法：各向异性噪声与离群值
+
+迄今所回顾的是可重表述为 QCQP 的 SLAM 问题的可认证算法及快速求解器。下面考察更广一类 SLAM 问题，即具有各向异性测量噪声的问题和含离群值的问题。其有趣之处在于：严格说来它们不再是 QCQP，却常可表述为多项式优化问题（polynomial optimization problems，POPs），其中目标函数和约束均为多项式函数，而不只是二次函数。这一点很重要，因为 Shor 松弛存在一种推广，即矩（或 Lasserre）松弛，可为 POP 推导 SDP 松弛，从而能够为更广泛问题设计可认证算法。下面回顾可写为 POP 的 SLAM 问题示例，随后概述矩松弛及实际考量。
+
+**示例：具有各向异性噪声的基于路标 SLAM。** 前几节假设测量噪声各向同性。然而，常见传感模态产生的测量，例如双目相机、LiDAR 和雷达，通常具有各向异性噪声。例如，双目相机观察到的路标位置测量，通常沿相机视线方向更不确定，这是由双目匹配和三角化过程产生的不确定性所致。形式上，路标测量的测量模型变为 $\tilde { m } _ { i k } = R _ { i } ^ { \top } ( m _ { k } - t _ { i } ) + \epsilon _ { i k }$，其中 $\epsilon _ { i k } \sim \mathcal { N } ( \mathbf { 0 } , \mathbf { W } _ { i k } )$，且 $\mathbf { W } _ { i k }$ 是各向异性协方差，即不能写成单位矩阵的标量倍数。在各向异性噪声下，须将基于路标的 SLAM 问题 6.5 推广为 [465]：
+
+$$
+\begin{array}{rl} & {\text{问题 6.7（具有各向异性噪声的基于路标 SLAM）}\\ & {\quad \underset { \begin{array}{c}\boldsymbol{R}_i\in \mathrm{SO}(d)\\ \boldsymbol{t}_i\in \mathbb{R}^d, \boldsymbol{m}_k\in \mathbb{R}^d \end{array}}{\min}\sum_{(i,j)\in \overrightarrow{\mathcal{E}}}\kappa_{ij}\| \boldsymbol{R}_j - \boldsymbol{R}_i\tilde{\boldsymbol{R}}_{ij}\| _F^2 +\tau_{ij}\left\| \boldsymbol {t}_j - \boldsymbol {t}_i - \boldsymbol{R}_i\tilde{\boldsymbol{t}}_{ij}\right\| _2^2}\\ & {\qquad +\sum_{(i,k)\in \vec{\mathcal{E}}_m}\| \boldsymbol{R}_i^\top (\boldsymbol {m}_k - \boldsymbol {t}_i) - \tilde{\boldsymbol{m}}_{ik}\|_{\mathbf{W}_{ik}}^2} \end{array}\tag{6.34}
+$$
+
+在（6.34）中，$\vec { \mathcal { E } } _ { m }$ 表示对应路标测量的边集合；对于维度适当的一般向量 $a$ 和矩阵 $W$，记号 $\| \pmb { a } \| _ { W } ^ { 2 } = \pmb { a } ^ { \top } W \pmb { a }$ 表示标准 Mahalanobis 平方范数。相对于问题 6.5，这一看似无害的改变在实践中影响重大。实际上，若 $\mathbf { W } _ { i k }$ 各向同性，例如 $\mathbf { W } _ { i k } = \mu _ { i k } ^ { - 1 } \mathbf { I } _ { 3 }$，可将（6.34）变换为问题 6.5 的 QCQP；而若 $\mathbf { W } _ { i k }$ 各向异性，则该问题为四次问题，即涉及变量的四次多项式。<sup>6</sup>
+
+**示例：含离群值的 SLAM。** 至此假设所有测量均受零均值、但可能各向异性的高斯噪声影响。不幸的是，如第 3 章所述，真实 SLAM 问题的部分测量可能为离群值。这通常发生在回环或路标测量中：错误地点识别或数据关联会使不正确测量加入 SLAM 后端。如第 3 章所述，缓解离群值影响的有效方法是使用鲁棒损失函数。例如，存在离群值时，基于路标的 SLAM 问题 6.5 变为：
+
+问题 6.8（含离群值的位姿图优化）
+
+$$
+\begin{array}{r l} & {\underset { \begin{array}{c} \boldsymbol {R} _ {i} \in \mathrm{SO} (d) \\ \boldsymbol {t} _ {i} \in \mathbb {R} ^ {d},\; \boldsymbol {m} _ {k} \in \mathbb {R} ^ {d} \end{array} } {\min} \sum_ {(i, j) \in \overrightarrow {\mathcal {E}} _ {o}} \kappa_ {i j} \| \boldsymbol {R} _ {j} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {R}} _ {i j} \| _ {F} ^ {2} + \tau_ {i j} \left\| \boldsymbol {t} _ {j} - \boldsymbol {t} _ {i} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {t}} _ {i j} \right\| _ {2} ^ {2}} \\ & {\quad + \sum_ {(i, k) \in \overrightarrow {\mathcal {E}} _ {m}} \rho \left(\sqrt {\mu_ {i k}} \left\| \boldsymbol {m} _ {k} - \boldsymbol {t} _ {i} - \boldsymbol {R} _ {i} \tilde {\boldsymbol {m}} _ {i k} \right\| _ {2}\right).} \end{array}\tag{6.35}
+$$
+
+在（6.35）中，$\rho ( \cdot )$ 是鲁棒损失函数（参见第 3 章），其设计目标是降低路标测量中潜在离群值的影响。由第 3 章可知，可用 Black--Rangarajan 对偶性将（6.35）重表述为带辅助变量 $w _ { i k }$ 的最小二乘问题，每个鲁棒损失项对应一个辅助变量。例如，当选取 $\rho ( \cdot )$ 为截断二次损失时，（6.35）可改写为
+
+$$
+\begin{array}{l}\underset { \begin{array}{c}\boldsymbol{R}_{i}\in \mathrm{SO}(d)\\ \boldsymbol{t}_{i}\in \mathbb{R}^{d}\\ \boldsymbol{m}_{k}\in \mathbb{R}^{d}\\ w_{ik}\in [0,1 ] \end{array} }{\min}\sum_{(i,j)\in \vec{\mathcal{E}}_{o}}\kappa_{ij}\| \boldsymbol{R}_{j} - \boldsymbol{R}_{i}\tilde{\boldsymbol{R}}_{ij}\|_{F}^{2} + \tau_{ij}\left\| \boldsymbol{t}_{j} - \boldsymbol{t}_{i} - \boldsymbol{R}_{i}\tilde{\boldsymbol{t}}_{ij}\right\|_{2}^{2}\\ \\ +\sum_{(i,k)\in \vec{\mathcal{E}}_{m}}w_{ik}\mu_{ik}\left\| \boldsymbol{m}_{k} - \boldsymbol{t}_{i} - \boldsymbol{R}_{i}\tilde{\boldsymbol{m}}_{ik}\right\|_{2}^{2} + (1 - w_{ik})\beta^{2}, \end{array}\tag{6.36}
+$$
+
+其中 $\beta$ 是截断二次损失指定的最大内点误差。注意，（6.36）现在包含辅助变量 $w _ { i k }$，它们指示一个测量被划分为内点还是离群值。有趣的是，（6.36）的目标函数包含最高三次多项式，而约束仍至多为二次函数。文献 [1221] 表明，对多种鲁棒损失选择和其他问题变体，包括位姿图优化与多旋转平均，同一结论均成立。下面讨论如何为涉及多项式的优化问题获得半正定松弛。
+
+**多项式优化问题与矩松弛。** 上述例子表明，广泛的 SLAM 问题可以重表述为涉及多项式的优化问题。形式上，它们可以写为 POP：
+
+$$
+\begin{array}{c} \min _ {\boldsymbol {x}} p (\boldsymbol {x}) \\ \text {subject to} h _ {i} (\boldsymbol {x}) = 0, i = 1, \ldots , n _ {h} \\ g _ {i} (\boldsymbol {x}) \leq 0, i = 1, \ldots , n _ {g}, \end{array}\tag{POP}
+$$
+
+其中函数 $p , h _ { i } , g _ { i }$ 是变量 $\pmb{x}$ 的实多项式，$n _ { h }$ 和 $n _ { g }$ 分别是等式和不等式约束的数量。
+
+将 SLAM 问题重写为 (POP) 并不立即意味着计算优势：POP 是非常一般的优化问题类别，也包含 QCQP，且一般难以求解。我们关注 (POP)，是因为存在标准过程，即矩（或 Lasserre）松弛，可获得 (POP) 的半正定松弛。更有意义的是，该过程提供构造松弛层级的工具，并保证在温和假设下，该层级中的某些松弛精确。关于矩松弛的更全面介绍，请参阅 [147] 和奠基性工作 [627, 626]；下面给出一个简单例子来说明其基本思想。
+
+为说明如何获得 POP 的松弛，考虑问题：
+
+$$
+\begin{array}{c} \min _ {\boldsymbol {x}} p (\boldsymbol {x}) \\ \text { subject   to } h _ {i} (\boldsymbol {x}) = 0, i = 1, \ldots , n _ {h} \end{array}\tag{6.37}
+$$
+
+为简单起见，假设 $\pmb { x } = [ x _ { 1 } ; x _ { 2 } ]$，且 $p ( \pmb x )$ 和 $h ( \pmb x )$ 都是次数至多为 4 的多项式；在这个简化例子中只有等式约束。
+
+为导出 (POP) 的矩松弛，定义次数至多为 $r = 2$ 的单项式向量，其中 $r$ 称为松弛阶：
+
+$$
+[ \pmb {x} ] _ {2} = [ 1; x _ {1}; x _ {2}; x _ {1} ^ {2}; x _ {1} x _ {2}; x _ {2} ^ {2} ].\tag{6.38}
+$$
+
+随后可以如下外积构造矩矩阵：
+
+$$
+\boldsymbol {X} _ {4} \triangleq [ \boldsymbol {x} ] _ {2} [ \boldsymbol {x} ] _ {2} ^ {\mathsf {T}} = \left[ \begin{array}{c c c c c c} 1 & x _ {1} & x _ {2} & x _ {1} ^ {2} & x _ {1} x _ {2} & x _ {2} ^ {2} \\ x _ {1} & x _ {1} ^ {2} & x _ {1} x _ {2} & x _ {1} ^ {3} & x _ {1} ^ {2} x _ {2} & x _ {1} x _ {2} ^ {2} \\ x _ {2} & x _ {1} x _ {2} & x _ {2} ^ {2} & x _ {1} ^ {2} x _ {2} & x _ {1} x _ {2} ^ {2} & x _ {2} ^ {3} \\ x _ {1} ^ {2} & x _ {1} ^ {3} & x _ {1} ^ {2} x _ {2} & x _ {1} ^ {4} & x _ {1} ^ {3} x _ {2} & x _ {1} ^ {2} x _ {2} ^ {2} \\ x _ {1} x _ {2} & x _ {1} ^ {2} x _ {2} & x _ {1} x _ {2} ^ {2} & x _ {1} ^ {3} x _ {2} & x _ {1} ^ {2} x _ {2} ^ {2} & x _ {1} x _ {2} ^ {3} \\ x _ {2} ^ {2} & x _ {1} x _ {2} ^ {2} & x _ {2} ^ {3} & x _ {1} ^ {2} x _ {2} ^ {2} & x _ {1} x _ {2} ^ {3} & x _ {2} ^ {4} \end{array} \right].\tag{6.39}
+$$
+
+关键观察是，次数至多为 4 的任意多项式均可写成 $X_4$ 元素的线性组合。因此，可将（6.37）重写为：
+
+$$
+\begin{array}{c} \underset {\boldsymbol {X}, \boldsymbol {x}} {\min} \operatorname{tr} (\boldsymbol {C X}) \\ \text {subject to tr} (\boldsymbol {H} _ {i} \boldsymbol {X}) = 0, i = 1, \ldots , n _ {h} \\ \boldsymbol {X} = [ \boldsymbol {x} ] _ {2} [ \boldsymbol {x} ] _ {2} ^ {\mathsf {T}} \end{array}\tag{6.40}
+$$
+
+完全类似 Shor 松弛，现在可将约束 $\boldsymbol { X } = [ \pmb x ] _ { 2 } [ \pmb x ] _ { 2 } ^ { \mathsf { T } }$ 替换为 $X \succeq 0$ 和 $\operatorname{rank} ( \pmb { X } ) = 1$，然后松弛秩约束以获得半正定松弛。重要的是，矩松弛还会加入冗余约束<sup>7</sup>来提高质量。这些约束刻画矩矩阵中包含重复元素这一事实，例如项 $x_1x_2$ 在（6.40）中出现 3 次；以及当 $h _ { i } ( \pmb x ) = 0$ 时，$x _ { 1 } \cdot h _ { i } ( x ) = 0$ 和 $x _ { 2 } \cdot h _ { i } ( x ) = 0$ 也必须成立这一事实。矩松弛提供系统方法识别所有这些冗余约束，并扩展到不等式约束情形。此外，尽管上文导出的是 $r = 2$ 阶松弛，但可对任意整数 $r \geq 2$ 重复该过程，获得更大但更好的 SDP 松弛，即一个松弛层级。奠基性工作 [806] 表明，在温和假设下，矩松弛会在有限阶 $r$ 产生精确松弛，即恢复原始 POP 的可认证最优解。有趣的是，相关工作 [1221, 465] 观察到，各向异性噪声和离群值问题的矩松弛在较低松弛阶即已精确。即使在单项式基（6.38）中只使用部分变量，即使用稀疏单项式基时，它们仍保持紧致，这进一步缩小所得 SDP 的规模。
+
+**“代价”：求解 SDP 矩松弛。** 前几节的松弛与本节松弛的一个重要区别是，后者的 SDP 松弛包含大量冗余约束。该差异看似很小，却对 SDP 求解器造成深远后果。特别地，带冗余约束的 SDP，例如矩松弛通常得到的 SDP，是退化的 [27]，这使黎曼阶梯求解器因两个原因而难以应用。第一，这些问题通常不满足约束资格条件，而该条件是保证黎曼阶梯收敛所必需的 [841]。第二，退化 SDP 具有无穷多个对偶解，这在实现黎曼阶梯时造成计算障碍。换言之，黎曼阶梯不再是通常由矩松弛产生的退化 SDP 的可行求解器。尽管近期文献已包含 POP 矩松弛的专用求解器 [1220]，它们相较局部求解器仍然较慢。
+
+## 6.2 SLAM 问题最优解的准确性如何？
+
+上一节讨论了如何为某些 SLAM 问题获得可认证最优解。然而，另一个基本问题仍然存在：相对于真值，最优解究竟有多准确？理解这一基本极限并识别影响估计准确性的关键因素，可为系统设计人员和最终用户提供重要指导。例如，在设计阶段，这些认识可指导机器人所配备传感器的选择；而在部署阶段，则可据此引导机器人的运动（以及相应的测量采集），以确保鲁棒的 SLAM 性能。在给出具体答案之前，首先需要形式化该问题。现代 SLAM 流水线较为复杂，许多相互作用的子系统会影响整体性能。因此，我们从估计理论的角度研究此问题，聚焦于 SLAM 后端。
+
+**一些术语与事实。** SLAM 后端的目标是根据含噪测量估计未知量，例如机器人位姿和路标位置。由于受到随机传感器噪声的污染，这些测量是随机变量。估计器是将收集到的含噪测量映射为未知参数估计值的函数。由于估计器依赖于随机测量，它本身也是随机变量。均方误差（Mean Squared Error, MSE）是评估估计器性能的常用指标。顾名思义，MSE 表示对所有可能测量求平均的平方估计误差。在单变量情形下，MSE 可表示为估计器的偏差平方与方差之和。偏差是指在所有可能测量上求平均后，真值与估计器输出之间的差异。方差刻画估计器输出在其均值附近的变动性。偏差与方差之间的关系及 MSE 的定义可自然推广至多变量情形，此时以协方差矩阵替代方差。MSE 仍为偏差的平方范数与协方差矩阵迹之和。显然，对于无偏估计器（即偏差为零的估计器），唯一影响 MSE 的量是协方差矩阵。下文将给出 SLAM 估计协方差的下界，从而得到 SLAM 系统可达到准确性的基本极限。
+
+## 6.2.1 Cramer--Rao 下界与 Fisher 信息矩阵
+
+Cramer--Rao 下界（Cramer--Rao Lower Bound, CRLB）给出了任意无偏估计器所能达到的最佳协方差的理论极限。形式上，
+
+$$
+\mathrm{Cov} (\hat {\pmb {x}}) \succeq \mathcal {I} (\pmb {x} _ {\mathrm{true}}) ^ {- 1},\tag{6.41}
+$$
+
+其中，$\hat{\pmb{x}}$ 是 $\pmb { x } _ { \mathrm { true } } \in \mathbb { R } ^ { m }$ 的任意无偏估计器；$A \succeq B$ 表示 $\pmb { A } - \pmb { B }$ 为半正定矩阵。式（6.41）右侧的矩阵 $\mathcal { I } ( \pmb { x } _ { \mathrm { true } } )$ 是 Fisher 信息矩阵（Fisher information matrix, FIM），其定义为<sup>8</sup>
+
+$$
+[ \mathcal {I} (\pmb {x} _ {\mathrm{true}}) ] _ {i, j} \triangleq \mathbb {E} _ {\pmb {z}} \left[ \frac {\partial}{\partial x _ {i}} \log p (\pmb {z}; \pmb {x}) \frac {\partial}{\partial x _ {j}} \log p (\pmb {z}; \pmb {x}) \right].\tag{6.42}
+$$
+
+这里的期望是对从概率密度函数 $p ( \pmb{z}; \pmb{x} _ { \mathrm { true } } )$ 中抽取的测量 $\pmb{z}$ 的可能实现取的，且对数似然函数的偏导数在真参数值 $\pmb { x } _ { \mathrm { true } }$ 处求值。在某些正则性条件下，FIM 也可表示为对数似然 Hessian 矩阵的期望：
+
+$$
+\left[ \mathcal {I} (\pmb {x} _ {\mathrm{true}}) \right] _ {i, j} = - \mathbb {E} _ {\pmb {z}} \left[ \frac {\partial^ {2}}{\partial x _ {i} \partial x _ {j}} \log p (\pmb {z}; \pmb {x}) \right].\tag{6.43}
+$$
+
+与 Hessian 的这一联系为理解 CRLB 提供了直观视角：CRLB 以真参数值 $\pmb { x } _ { \mathrm { true } }$ 附近的参数局部敏感性（曲率）来表示任意无偏估计器协方差的下界，这里的曲率针对（期望）对数似然函数而言。若在不同测量实现下（即在期望意义上），对数似然在真参数值附近相对平坦，则任意无偏估计器都难以根据观测数据准确定位真参数。在这种情况下，无偏估计器将具有较大的方差，从而导致较大的 MSE。总之，FIM 刻画了利用任意无偏估计器可从测量中获得的、关于真参数值的信息量。
+
+在某些正则性条件下，已有结果表明，当测量数量趋于无穷时，最大似然估计器 $\hat { \pmb x } _ { \mathrm { mle } }$ 渐近地（即在分布意义下）收敛到 $\mathcal { N } \left( \pmb { x } _ { \mathrm { true } } , \mathcal { I } ( \pmb { x } _ { \mathrm { true } } ) ^ { - 1 } \right)$。因此，最大似然估计器是渐近无偏的，并达到 CRLB（即在所有无偏估计器中具有最小方差）。由于参数的真值 $\pmb { x } _ { \mathrm { true } }$ 未知，通常以 $\mathcal { I } ( \hat { \pmb x } _ { \mathrm { mle } } )$ 近似 FIM。此外，常以 $\mathcal { I } ( \hat { \pmb x } _ { \mathrm { mle } } ) ^ { - 1 }$ 近似最大似然估计器 $\hat { \pmb x } _ { \mathrm { mle } }$ 的协方差。
+
+作为示例，考虑常见情形：测量由平滑（可能非线性）函数叠加加性高斯噪声生成。此时测量模型可写为
+
+$$
+\pmb {z} = \pmb {h} (\pmb {x} _ {\mathrm{true}}) + \epsilon ,\tag{6.44}
+$$
+
+其中，$\epsilon \sim \mathcal { N } ( \mathbf { 0 } , \pmb { \Sigma } )$ 为噪声。因此，在 $\pmb{x}$ 处求值的似然函数为 $p ( \pmb{z} ; \pmb{x} ) = \mathcal { N } ( \pmb{h} ( \pmb{x} ) , \pmb{\Sigma} )$。将此似然函数代入式（6.42），可得 FIM（在 $\pmb{x}$ 处求值）：
+
+$$
+\mathcal {I} (\pmb {x}) = \mathbf {J} (\pmb {x}) ^ {\top} \pmb {\Sigma} ^ {- 1} \mathbf {J} (\pmb {x}),\tag{6.45}
+$$
+
+其中，$\mathbf { J } ( \pmb{x} )$ 表示在 $\pmb{x}$ 处求值的测量模型 $\pmb{h}$ 的雅可比矩阵。<sup>9</sup>
+
+**不确定性的标量度量：最优实验设计准则。** 在多数应用中，我们希望估计尽可能确定且准确。FIM 量化了确定性，但通常为矩阵值；理想情况下，需要一个能够量化不确定性、以用于决策或评估估计器的单一数值。因此，在许多应用中（例如系统设计、主动 SLAM），需要将作为 PSD 矩阵的 FIM 映射为实数，以捕获估计误差不确定性的某个有意义且“可优化”的方面。最优实验设计领域已研究了标准的选择，包括 FIM 的行列式（D-最优性）、其逆的迹（A-最优性）和其最小特征值（E-最优性）。这些准则均为 FIM 的谱函数（即可由 FIM 的特征值计算）。每项准则反映估计误差的不同方面：D-最优性准则量化不确定性的超体积，A-最优性准则衡量平均方差，E-最优性准则表示最坏情况下的估计方差。
+
+## 6.2.2 Fisher 信息矩阵与图拉普拉斯
+
+本节研究 SLAM 问题的图结构如何影响 FIM。考察式（6.45）可得到一个直观事实：测量噪声协方差矩阵 $\pmb{\Sigma}$ 会影响 FIM；不出所料，较高的测量噪声协方差会提高 CRLB 中所有无偏估计器所能达到的最小 MSE 下界。此外，测量的雅可比矩阵也出现在式（6.45）中，但仅由该式难以直观理解测量雅可比矩阵如何影响 CRLB。<sup>10</sup> 下文将把雅可比矩阵及其所得 FIM 与 SLAM 问题底层图的性质联系起来，从而深入理解其结构。
+
+正如第 1 章和本章前文所述，SLAM 的所有变体都天然具有图表示。该图本质上编码了“谁观测谁”，并简洁地概括 SLAM 问题。例如，在位姿图优化和基于路标的 SLAM 中，每个变量（如机器人位姿或路标位置）由一个顶点表示，成对测量（位姿--位姿或位姿--路标）则对应于相应顶点之间的边。
+
+接下来研究 SLAM 问题底层图的性质如何影响所得估计的准确性。特别地，图内的连通程度反映测量中的冗余性。直观而言，“连通性更好”的 SLAM 图由于存在冗余测量，预期对噪声更具鲁棒性，即使在较高噪声水平下也能得到准确估计。尽管由式（6.45）容易证明，加入额外测量（即边）总能降低 CRLB 中的下界（按 Loewner 偏序），<sup>11</sup>但不同测量的影响取决于额外测量涉及哪些变量（即所形成的图连通性）。在 SLAM 的回环情境中这一点尤其明显：闭合“更大”的回环会更显著地提高 SLAM 解的准确性。一系列工作已将这一直觉形式化，建立了 SLAM 的图结构与估计、优化中理想性质之间的联系。下面简要概述这些发现。
+
+**简化 PGO 问题中 FIM 与图拉普拉斯的联系。** 基于路标的 SLAM 与位姿图优化中的 FIM 与图拉普拉斯密切相关 [561, 560, 877, 190]。鉴于这些框架中的测量由顶点之间的成对相对观测组成，这一关系是直观的。为说明这一概念，下面推导一个较简单问题的 FIM：在机器人朝向已知的三维位姿图优化问题中估计机器人位置。令 $\pmb{z} _ { k }$ 表示第 $k$ 个相对测量，其中位姿 $i _ { k }$ 在自身局部坐标系中观测位姿 $j _ { k }$：
+
+$$
+\boldsymbol {z} _ {k} = \boldsymbol {R} _ {i _ {k}} ^ {\top} (\boldsymbol {t} _ {j _ {k}} - \boldsymbol {t} _ {i _ {k}}) + \boldsymbol {\epsilon} _ {k},\tag{6.46}
+$$
+
+其中，$\boldsymbol {\epsilon} _ { k } \sim \mathcal {N} ( \mathbf {0} , w _ { k } ^ { - 1 } \mathbf {I} _ { 3 } )$，而 $\mathbf { I } _ { 3 }$ 是 $3 \times 3$ 单位矩阵。令 $\pmb{z}$、$\pmb{t}$ 和 $\pmb{\epsilon}$ 分别为测量、位置和噪声变量的堆叠向量。此外，令 $\pmb{R}$ 为（已知）旋转矩阵的块对角矩阵，其第 $k$ 个块是第 $k$ 个测量所涉及的旋转矩阵：
+
+$$
+\boldsymbol {R} \triangleq \operatorname{BlockDiag} \left(\boldsymbol {R} _ {i _ {1}}, \boldsymbol {R} _ {i _ {2}}, \dots , \boldsymbol {R} _ {i _ {m}}\right).\tag{6.47}
+$$
+
+堆叠测量模型可表示为：
+
+$$
+\pmb {z} = \pmb {R} ^ {\top} (\pmb {A} \otimes \mathbf {I} _ {3}) ^ {\top} \pmb {t} + \pmb {\epsilon},\tag{6.48}
+$$
+
+其中，$\pmb{A}$ 表示位姿图的约化关联矩阵，<sup>12</sup>$\otimes$ 表示 Kronecker 积。因此，堆叠测量模型的雅可比矩阵为
+
+$$
+\boldsymbol {J} = \boldsymbol {R} ^ {\top} (\boldsymbol {A} \otimes \mathbf {I} _ {3}) ^ {\top}.\tag{6.49}
+$$
+
+堆叠噪声向量的信息矩阵为
+
+$$
+\boldsymbol {\Sigma} ^ {- 1} = \operatorname{BlockDiag} \left(w _ {1} \mathbf {I} _ {3}, w _ {2} \mathbf {I} _ {3}, \dots , w _ {m} \mathbf {I} _ {3}\right).\tag{6.50}
+$$
+
+令 $\pmb{W}$ 表示边权重的对角矩阵：
+
+$$
+\boldsymbol {W} \triangleq \left[ \begin{array}{c c c c} w _ {1} & 0 & \dots & 0 \\ 0 & w _ {2} & \dots & 0 \\ \vdots & \vdots & \ddots & \vdots \\ 0 & 0 & \dots & w _ {m} \end{array} \right].\tag{6.51}
+$$
+
+使用式（6.45），FIM 可按如下方式计算：
+
+$$
+\mathcal {I} = \boldsymbol {J} ^ {\top} \boldsymbol {\Sigma} ^ {- 1} \boldsymbol {J}\tag{6.52a}
+$$
+
+$$
+= \left(\boldsymbol {A} \otimes \mathbf {I} _ {3}\right) \boldsymbol {R} \boldsymbol {\Sigma} ^ {- 1} \boldsymbol {R} ^ {\top} \left(\boldsymbol {A} \otimes \mathbf {I} _ {3}\right) ^ {\top}\tag{6.52b}
+$$
+
+$$
+= (\boldsymbol {A} \otimes \mathbf {I} _ {3}) (\boldsymbol {W} \otimes \mathbf {I} _ {3}) (\boldsymbol {A} \otimes \mathbf {I} _ {3}) ^ {\top}\tag{6.52c}
+$$
+
+$$
+= (\boldsymbol {A} \boldsymbol {W} \boldsymbol {A} ^ {\top}) \otimes \mathbf {I} _ {3}\tag{6.52d}
+$$
+
+$$
+= \pmb {L} _ {w} \otimes \mathbf {I} _ {3},\tag{6.52e}
+$$
+
+这里注意到 $\pmb{\Sigma} ^ { - 1 }$ 的块对角元素在旋转下保持不变，因此 $\pmb{R} \pmb{\Sigma} ^ { - 1 } \pmb{R} ^ { \top } = \pmb{\Sigma} ^ { - 1 }$；并使用了 $\pmb{\Sigma} ^ { -1 } = \pmb { W } \otimes \mathbf { I } _ { 3 }$ 这一事实。在式（6.52e）中，$\pmb{L} _ { w } = \pmb{A} \pmb{W} \pmb{A} ^ { \top }$ 是图的约化加权拉普拉斯矩阵，其边权重为 $w _ { 1 } , w _ { 2 } , \ldots , w _ { m }$。这清楚表明，在此情形下（即假定机器人朝向已知且噪声各向同性的简化 PGO），FIM 完全由底层图的约化加权拉普拉斯刻画。
+
+**其他 SLAM 问题的 FIM。** 上述结果可推广到 PGO 和基于路标的 SLAM 问题 [561, 877, 190]。在这些问题中，FIM 同时涉及图的约化加权拉普拉斯矩阵和依赖于机器人轨迹的附加项。特别地，三维位姿图优化的 FIM 可写为 [877, Eq. 29]：
+
+$$
+\mathcal {I} (\mathbf {x}) = \sum_ {k = 1} ^ {m} \boldsymbol {L} _ {k} \otimes \left(\operatorname{Ad} \left(\boldsymbol {T} _ {i _ {k}} ^ {- 1}\right) ^ {\top} \boldsymbol {\Sigma} _ {k} ^ {- 1} \operatorname{Ad} \left(\boldsymbol {T} _ {i _ {k}} ^ {- 1}\right)\right),\tag{6.53}
+$$
+
+其中，$\pmb { T } _ { i _ { k } }$ 是进行第 $k$ 个测量的机器人的位姿，$\pmb{\Sigma} _ { k }$ 是污染第 $k$ 个测量的噪声协方差矩阵，$\pmb{L} _ { k }$ 是第 $k$ 条边的约化基本拉普拉斯矩阵，定义为 $\pmb { L } _ { k } \triangleq \pmb { a } _ { k } \pmb { a } _ { k } ^ { \top }$，其中 $\pmb { a } _ { k }$ 是图的约化关联矩阵的第 $k$ 列。实证结果与理论分析表明，在某些条件下，由约化拉普拉斯得到的（近似）最优设计准则与由 FIM 得到的准则高度一致 [561, 877, 190]。
+
+**实践考量。** FIM 与图拉普拉斯之间的联系允许使用约化加权拉普拉斯的谱来近似最优设计准则，即 FIM 的谱函数。例如，D-最优性准则可由约化加权拉普拉斯行列式的函数近似。根据 Kirchhoff 矩阵树定理，该行列式等于图的加权生成树数量 [561]。由于加权生成树数量可度量边加权图的连通性，这一结果形式化了图的连通性直接影响估计准确性的直觉。类似地，E-最优性准则与图的代数连通度相关 [275, 561, 877]。总体而言，使用图拉普拉斯而非 FIM 度量不确定性有两项主要优势：其一，可得到计算效率更高的技术（例如，在三维位姿图优化中，拉普拉斯的维度仅为 FIM 的六分之一）；其二，无需求解 SLAM 问题或采集实际测量，因为计算仅基于图结构。这些设计准则的图近似已成功用于主动 SLAM [190, 582, 877]，其中机器人规划其轨迹以最大化预期的 SLAM 准确性；也用于测量选择与剪枝 [275, 561, 1094]，目标是在终身 SLAM 问题中仅选择并保留信息量最大的测量。
+
+## 6.3 延伸阅读与近期趋势
+
+**可认证算法。** 首个用于二维 SLAM 的可认证算法可追溯至 [149]，其建立在计算机视觉及相关领域的早期工作之上，包括 [338, 1014]。其后很快出现了向三维 SLAM 的扩展和各种变体 [151, 1108, 937, 939, 114, 152]；其中 SE-Sync 首次给出了构建快速可认证算法的蓝图，并首次在有界测量噪声下给出了全局最优性保证（即松弛的精确性）[937]。
+
+此后，针对多种与 SLAM 有关的问题均已设计可认证算法，<sup>13</sup>包括旋转平均 [122, 972, 251]、PGO [937, 149]、基于路标的 SLAM [465]、多机器人 SLAM [1093]、距离辅助 SLAM [840]、三维配准 [115, 1223]、多集合配准 [501]、双视图几何 [116, 1285, 367, 1097, 538]、perspective-n-point 问题 [1053]、标定 [382]、单帧位姿与形状估计 [1006]、多帧位姿与形状估计 [994]，以及带学习深度的运动恢复 [1256]。近期工作还将可认证算法扩展至应对各向异性噪声 [466] 和离群值 [1221]。
+
+尽管过去十年中该领域取得了显著进展，仍存在三个令人关注的开放问题。首先，仍有一些 SLAM 问题无法用可认证算法处理。例如，在进行视觉 SLAM（第 7 章）时，目标函数中出现的透视投影是有理函数而非多项式；尽管可通过引入额外变量将该问题重新表述为 POP，但通常无法为一幅图像中的每个关键点测量增加一个变量。同样地，第 11 章将详细讨论的 IMU 测量建模，也尚不利于设计可认证算法。第二，除某些问题外，例如 [937, 538, 1256, 840]，其中可将黎曼阶梯方法用作快速求解器，否则可能需要通过内点法或其他特设求解器求解 SDP。内点法在求解 SLAM 前端中产生的低维优化问题时十分有效且快速（例如 [115, 1223, 116, 1285, 367, 1097, 538]），但应用于 SLAM 后端中的大规模问题时会慢到不切实际（例如 [937]）；特设求解器虽然更具可扩展性，但相较局部求解器仍然较慢 [1220]。为解决此问题，近期工作不仅研究更快的 SDP 求解器，还聚焦于如何缩小 SDP 的规模（例如稀疏化矩松弛的底层单项式基）[1220]，或如何减少约束数目，以尝试使 SDP 不退化或加快求解 [290]。最后，尽管当前工作为每个实例计算最优性证书（即计算估计值，并可能为其提供最优性证书），文献中仍缺乏对何时预期松弛精确的基本理解，只有少数论文给出了特定问题精确性的条件 [1218, 859, 937, 310, 147]。
+
+**含离群值的问题。** 现实世界的 SLAM 问题通常饱受离群值困扰，第 3 章已对此作了详细讨论。尽管一些工作在无离群值的可认证算法外层套用 Graduated Non-Convexity 迭代 [1223, 1006, 994]，以在经验上获得对离群值的鲁棒性，近期工作则直接尝试为涉及离群值的鲁棒估计问题开发可认证算法。该方向的研究处理了 PGO [618, 153]、旋转估计 [1218]、三维配准 [1223]、多重旋转平均、绝对位姿估计，以及位姿与形状估计 [1221]。文献 [1221] 对这些结果作了良好总结，而与鲁棒统计并行工作的联系则见 [147]。这些算法依赖于本章前面介绍的矩松弛，所得 SDP 仍然相对较慢。另一种方法是通过局部求解器获得解，并使用矩松弛背后的相同洞见，仅推导检查最优性的方法 [1219]。
+
+在这种情形下也仍有许多值得关注的开放问题。<sup>14</sup> 在存在离群值时，仍面临上一段所述的相同挑战与机遇，包括如何将可认证算法扩展至其他含离群值的问题、如何设计更快的求解器，以及如何导出精确性的条件（例如作为噪声量和离群值数量的函数）。同时，还有与离群值存在有关的额外挑战。首先，上述 SLAM 方法假定存在无离群值的里程计骨干：换言之，只有回环测量被置于鲁棒损失函数中。在许多 SLAM 问题中，具有可靠里程计来源的假设可以接受，但在某些情形下会形成限制。例如，在视觉 SLAM 问题中，若特征跟踪失败，里程计可能变得不可靠；而在多机器人 SLAM 问题中，不存在连接不同机器人的里程计骨干，所有机器人间测量都可能是离群值。尽管当前可认证算法的表述可推广至也将里程计置于鲁棒损失中的情形，但所得松弛已知是不紧的，例如 [618]，且如何改进仍不明确。第二，即使在求解鲁棒估计问题时计算出最优估计，若大多数测量都是离群值，估计仍可能严重错误。一个有趣且尚未充分探索的方向是，设计能够恢复多个假设、同时保证至少一个假设正确的可认证算法；统计学中将该设定称为 list decodable regression [147]。
+
+**不确定性量化与下游应用。** 尽管第 6.2 节提供了计算工具，用以界定 SLAM 估计的不确定性，并可能根据底层图的结构预测其演化，但它仍留下许多开放问题。首先，计算 SLAM 估计的协方差依赖于已知测量协方差；若测量协方差矩阵不准确，所得不确定性界也会不可靠。近期工作使用学习来估计测量协方差，甚至整个测量模型 [1020, 889, 1244]（这也与第 4 章中关于可微优化的讨论相关）。第二，计算估计协方差的传统方法未考虑可能存在的离群值。存在离群值时，估计协方差可能不正确，潜在估计（例如机器人轨迹）的分布可能变得高度多模态，从而限制本章前文所述协方差估计的用途。最后，越来越多的文献使用不确定性量化来引导主动感知和主动 SLAM（综述见 [876]），并用于确定在终身 SLAM 期间或存在资源约束时如何选择测量子集 [275, 561, 1094, 150]。

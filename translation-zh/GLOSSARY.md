@@ -58,3 +58,19 @@
 | neural radiance field (NeRF) | neural radiance field（NeRF） | 专有方法名保留英文。 |
 | foundation model | 基础模型 | |
 | spatial AI | 空间智能（Spatial AI） | |
+| Shor's relaxation | Shor 松弛 | 半正定松弛的基础工具。 |
+| Riemannian Staircase | 黎曼阶梯 | SE-Sync 等方法使用的流形优化求解器。 |
+| pose-graph optimization (PGO) | 位姿图优化（PGO） | 与第 1 章术语一致。 |
+| certifiably correct | 可认证正确 | 指可给出全局最优性或次优性证书。 |
+| convex relaxation | 凸松弛 | |
+| rank constraint | 秩约束 | |
+| quadratically constrained quadratic program (QCQP) | 二次约束二次规划（QCQP） | |
+| polynomial optimization problem (POP) | 多项式优化问题（POP） | |
+| moment relaxation / Lasserre relaxation | 矩松弛 / Lasserre 松弛 | POP 的半正定松弛层级。 |
+| range-aided SLAM | 距离辅助 SLAM | 使用范围测量的 SLAM。 |
+| anisotropic noise | 各向异性噪声 | |
+| Mahalanobis norm | Mahalanobis 范数 | |
+| Fisher information matrix (FIM) | Fisher 信息矩阵（FIM） | |
+| graph Laplacian | 图拉普拉斯矩阵 | |
+| algebraic connectivity | 代数连通度 | 图拉普拉斯矩阵第二小特征值相关术语。 |
+| D-optimality / A-optimality / E-optimality | D 最优性 / A 最优性 / E 最优性 | 最优实验设计准则。 |

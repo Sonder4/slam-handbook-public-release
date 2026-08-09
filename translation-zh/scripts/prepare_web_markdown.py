@@ -14,6 +14,7 @@ IMAGE_RE = re.compile(r"^!\[\]\(([^)]+)\)\s*$")
 CAPTION_RE = re.compile(r"^图\s+(\d+\.\d+)\b")
 ENGLISH_CAPTION_RE = re.compile(r"^Figure\s+\d+\.\d+\b")
 SUBFIGURE_LABEL_RE = re.compile(r"^\([a-z]\)\s*$", re.IGNORECASE)
+SUBFIGURE_CAPTION_RE = re.compile(r"^\([a-z]\)(?:\s+.*)?$", re.IGNORECASE)
 ENGLISH_FIGURE_REF_RE = re.compile(r"Figure\s+(?P<number>\d+\.\d+)\b")
 ENGLISH_FORMULA_REF_RE = re.compile(
     r"(?P<label>Equation\s*\(?\s*(?P<number>\d+\.\d+[a-z]?)\s*\)?)"
@@ -57,6 +58,25 @@ def following_caption_index(lines: list[str], start: int) -> tuple[int | None, l
     return None, labels
 
 
+def caption_after_figure_sequence(
+    lines: list[str], start: int, caption_pattern: re.Pattern[str]
+) -> int | None:
+    """Find one caption shared by a sequence of subfigures.
+
+    PDF extraction often puts the labels and six or more images before a
+    single figure caption. The ordinary adjacent-caption path above should
+    remain preferred, while this bounded scan covers those grouped figures.
+    """
+    for index in range(start, min(len(lines), start + 64)):
+        candidate = lines[index].strip()
+        if not candidate or IMAGE_RE.match(candidate) or SUBFIGURE_CAPTION_RE.match(candidate):
+            continue
+        if caption_pattern.match(candidate):
+            return index
+        return None
+    return None
+
+
 def discover_figures(lines: list[str]) -> list[str]:
     figures: list[str] = []
     for index, line in enumerate(lines):
@@ -67,7 +87,16 @@ def discover_figures(lines: list[str]) -> list[str]:
                 if caption_index is not None
                 else None
             )
-            if caption:
+            if caption is None:
+                sequence_caption_index = caption_after_figure_sequence(
+                    lines, index + 1, CAPTION_RE
+                )
+                caption = (
+                    CAPTION_RE.match(lines[sequence_caption_index].strip())
+                    if sequence_caption_index is not None
+                    else None
+                )
+            if caption and caption.group(1) not in figures:
                 figures.append(caption.group(1))
     return figures
 
@@ -236,6 +265,20 @@ def transform_chapter(
             index += 1
             continue
 
+        caption = CAPTION_RE.match(stripped)
+        if caption and caption.group(1) in local_figures:
+            number = caption.group(1)
+            output.extend(
+                [
+                    f'<a id="{anchor("fig", number)}" class="figure-anchor"></a>',
+                    "",
+                    f"*{raw}*",
+                    "",
+                ]
+            )
+            index += 1
+            continue
+
         line = replace_references(raw, current_file, all_figures, all_formulas)
         if AUTHOR_RE.match(stripped):
             output.extend([line, "{ .chapter-authors }"])
@@ -332,6 +375,14 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
             caption = re.search(r"Figure\s+(\d+\.\d+)\b", body[caption_index])
             if caption and ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
                 local_figures.add(caption.group(1))
+        if caption_index is None or not ENGLISH_CAPTION_RE.match(body[caption_index].strip()):
+            sequence_caption_index = caption_after_figure_sequence(
+                body, image_index + 1, ENGLISH_CAPTION_RE
+            )
+            if sequence_caption_index is not None:
+                caption = re.search(r"Figure\s+(\d+\.\d+)\b", body[sequence_caption_index])
+                if caption:
+                    local_figures.add(caption.group(1))
     # Some PDF extraction orders a short figure caption before a display
     # equation and its image (notably Figure 5.2). Treat it as a caption
     # only when an image follows immediately in the extracted block.
@@ -395,6 +446,19 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
             and caption.group(1) in local_figures
             and not any(IMAGE_RE.match(line.strip()) for line in body[max(0, index - 5) : index])
             and any(IMAGE_RE.match(line.strip()) for line in body[index + 1 : index + 9])
+        ):
+            output.extend(
+                [
+                    f'<a id="{anchor("fig", caption.group(1))}" class="figure-anchor"></a>',
+                    "",
+                    f"*{raw}*",
+                    "{ .figure-caption }",
+                    "",
+                ]
+            )
+        elif (
+            (caption := re.match(r"^Figure\s+(\d+\.\d+)\b", stripped))
+            and caption.group(1) in local_figures
         ):
             output.extend(
                 [

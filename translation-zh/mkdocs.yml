@@ -20,18 +20,21 @@ nav:
   - 第 3 章：对错误数据关联和离群值的鲁棒性: chapter-3.md
   - 第 4 章：可微优化: chapter-4.md
   - 第 5 章：稠密地图表示: chapter-5.md
+  - 第 6 章：可认证最优求解器与 SLAM 的理论性质: chapter-6.md
   - 中英对照阅读:
       - 第 1 章: parallel-chapter-1.md
       - 第 2 章: parallel-chapter-2.md
       - 第 3 章: parallel-chapter-3.md
       - 第 4 章: parallel-chapter-4.md
       - 第 5 章: parallel-chapter-5.md
+      - 第 6 章: parallel-chapter-6.md
   - English original:
       - Chapter 1: original-chapter-1.md
       - Chapter 2: original-chapter-2.md
       - Chapter 3: original-chapter-3.md
       - Chapter 4: original-chapter-4.md
       - Chapter 5: original-chapter-5.md
+      - Chapter 6: original-chapter-6.md
 
 plugins:
   - search
