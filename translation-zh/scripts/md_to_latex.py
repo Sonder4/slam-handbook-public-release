@@ -26,7 +26,7 @@ def escape_text(text: str) -> str:
 
     text = BOLD_RE.sub(lambda m: hold(r"\textbf{" + escape_text(m.group(1)) + "}"), text)
     text = SUP_RE.sub(lambda m: hold(r"\textsuperscript{" + escape_text(m.group(1)) + "}"), text)
-    text = MATH_RE.sub(lambda m: hold("$" + m.group(1) + "$"), text)
+    text = MATH_RE.sub(lambda m: hold("$" + normalize_math(m.group(1)) + "$"), text)
 
     replacements = {
         "\\": r"\textbackslash{}",
@@ -46,7 +46,19 @@ def escape_text(text: str) -> str:
 
 
 def normalize_formula(formula: str) -> str:
-    return re.sub(r"\\tag\s*\{", r"\\tag{", formula.strip())
+    return normalize_math(re.sub(r"\\tag\s*\{", r"\\tag{", formula.strip()))
+
+
+def normalize_math(formula: str) -> str:
+    """Repair shorthand combinations that fail with amsbsy and math alphabets."""
+    for prefix in ("boldsymbol", "pmb"):
+        for alphabet in ("mathcal", "mathbb", "mathrm"):
+            formula = re.sub(
+                rf"\\{prefix}\\{alphabet}\s*([A-Za-z])",
+                rf"\\{prefix}{{\\{alphabet}{{\1}}}}",
+                formula,
+            )
+    return formula
 
 
 def heading_command(level: int, title: str) -> str:
