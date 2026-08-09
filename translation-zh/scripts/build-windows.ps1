@@ -11,6 +11,11 @@ if (-not $python) {
     throw 'Python was not found. Install Python 3.10+ and ensure python.exe is on PATH.'
 }
 
+$initexmf = Get-Command initexmf -ErrorAction SilentlyContinue
+if ($initexmf) {
+    & $initexmf.Source --set-config-value '[MPM]AutoInstall=1' 2>$null
+}
+
 $inputFiles = @(
     (Join-Path $translationRoot 'content\chapter-1.md'),
     (Join-Path $translationRoot 'content\chapter-2.md')

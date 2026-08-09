@@ -27,6 +27,17 @@ jobs:
         shell: pwsh
         run: choco install miktex --yes --no-progress
 
+      - name: Initialize MiKTeX packages
+        shell: pwsh
+        run: |
+          $miktexBin = 'C:\Program Files\MiKTeX\miktex\bin\x64'
+          if (Test-Path -LiteralPath $miktexBin) { $env:Path = "$miktexBin;$env:Path" }
+          initexmf --admin --update-fndb
+          initexmf --admin --set-config-value '[MPM]AutoInstall=1'
+          mpm --admin --update-db
+          mpm --admin --install=ctex
+          mpm --admin --install=microtype
+
       - name: Build PDF and website on Windows
         shell: pwsh
         run: |

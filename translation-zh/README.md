@@ -12,6 +12,7 @@ Windows 本机构建需要 Python 3.10+、MiKTeX 或 TeX Live（包含 XeLaTeX�
 
 ```powershell
 winget install MiKTeX.MiKTeX
+mpm --admin --install=ctex
 python -m pip install mkdocs-material pymdown-extensions
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\build-windows.ps1
