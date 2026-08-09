@@ -25,23 +25,17 @@ if ($LASTEXITCODE -ne 0) { throw 'Markdown validation failed.' }
 & $python.Source $converter --input $inputFiles[0] $inputFiles[1] --output $outputFiles[0] $outputFiles[1]
 if ($LASTEXITCODE -ne 0) { throw 'Markdown to LaTeX conversion failed.' }
 
-$latexmk = Get-Command latexmk -ErrorAction SilentlyContinue
 $xelatex = Get-Command xelatex -ErrorAction SilentlyContinue
-if (-not $latexmk -and -not $xelatex) {
+if (-not $xelatex) {
     throw 'XeLaTeX was not found. Install MiKTeX (winget install MiKTeX.MiKTeX) or TeX Live, then restart PowerShell.'
 }
 
 $latexRoot = Join-Path $translationRoot 'latex'
 Push-Location $latexRoot
 try {
-    if ($latexmk) {
-        & $latexmk.Source -xelatex -interaction=nonstopmode -halt-on-error -file-line-error 'main.tex'
-        if ($LASTEXITCODE -ne 0) { throw 'latexmk/XeLaTeX compilation failed.' }
-    } else {
-        for ($pass = 1; $pass -le 2; $pass++) {
-            & $xelatex.Source -interaction=nonstopmode -halt-on-error -file-line-error 'main.tex'
-            if ($LASTEXITCODE -ne 0) { throw "XeLaTeX compilation failed on pass $pass." }
-        }
+    for ($pass = 1; $pass -le 2; $pass++) {
+        & $xelatex.Source -interaction=nonstopmode -halt-on-error -file-line-error 'main.tex'
+        if ($LASTEXITCODE -ne 0) { throw "XeLaTeX compilation failed on pass $pass." }
     }
 } finally {
     Pop-Location
