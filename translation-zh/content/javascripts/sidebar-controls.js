@@ -1,4 +1,5 @@
 (() => {
+  const embedded = new URLSearchParams(window.location.search).has("embed");
   const desktopQuery = window.matchMedia("(min-width: 76.25em)");
   const controls = [
     {
@@ -33,6 +34,10 @@
 
   function initialize() {
     document.querySelectorAll(".reader-sidebar-toggle").forEach((button) => button.remove());
+    if (embedded) {
+      document.body.classList.add("reader-embed");
+      return;
+    }
     if (!desktopQuery.matches) {
       controls.forEach((control) => document.body.classList.remove(control.bodyClass));
       return;

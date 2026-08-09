@@ -127,13 +127,21 @@ def counterpart_link(chapter_number: str, language: str) -> str:
     # Keep the counterpart target extensionless so Material's URL rewriting
     # remains correct both locally and under the repository Pages base path.
     if language == "zh":
-        return (
+        counterpart = (
             f'<a class="counterpart-link" href="../original-chapter-{chapter_number}/">'
             "English original</a>"
         )
+    else:
+        counterpart = (
+            f'<a class="counterpart-link" href="../chapter-{chapter_number}/">'
+            "中文译文</a>"
+        )
     return (
-        f'<a class="counterpart-link" href="../chapter-{chapter_number}/">'
-        "中文译文</a>"
+        '<nav class="chapter-reader-links" aria-label="章节阅读模式">'
+        f"{counterpart}"
+        f'<a class="counterpart-link" href="../parallel-chapter-{chapter_number}/">'
+        "中英对照阅读</a>"
+        "</nav>"
     )
 
 
@@ -260,6 +268,11 @@ ENGLISH_CHAPTER_METADATA = {
     },
 }
 
+PARALLEL_CHAPTER_TITLES = {
+    "1": "第 1 章中英对照阅读",
+    "2": "第 2 章中英对照阅读",
+}
+
 
 def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
     start, end = source_chapter_range(lines, chapter_number)
@@ -352,6 +365,39 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
     return "\n".join(output).rstrip() + "\n"
 
 
+def make_parallel_reader(chapter_number: str) -> str:
+    """Create a single-page, side-by-side reader from the canonical pages."""
+
+    return "\n".join(
+        [
+            f"# {PARALLEL_CHAPTER_TITLES[chapter_number]}",
+            "",
+            '<nav class="chapter-reader-links" aria-label="章节阅读模式">',
+            f'<a href="../chapter-{chapter_number}/">中文单页</a>',
+            f'<a href="../original-chapter-{chapter_number}/">English original</a>',
+            "</nav>",
+            "",
+            '<div class="parallel-iframe-reader" data-parallel-reader>',
+            '  <section class="parallel-iframe-pane" lang="zh-CN">',
+            '    <h2 class="parallel-iframe-heading">中文译文</h2>',
+            (
+                f'    <iframe title="第 {chapter_number} 章中文译文" '
+                f'src="../chapter-{chapter_number}/?embed=1" loading="eager"></iframe>'
+            ),
+            "  </section>",
+            '  <section class="parallel-iframe-pane" lang="en">',
+            '    <h2 class="parallel-iframe-heading">English original</h2>',
+            (
+                f'    <iframe title="Chapter {chapter_number} English original" '
+                f'src="../original-chapter-{chapter_number}/?embed=1" loading="eager"></iframe>'
+            ),
+            "  </section>",
+            "</div>",
+            "",
+        ]
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
@@ -389,6 +435,9 @@ def main() -> int:
         destination = output_dir / f"original-chapter-{chapter_number}.md"
         destination.write_text(
             transform_english_chapter(english_lines, chapter_number), encoding="utf-8"
+        )
+        (output_dir / f"parallel-chapter-{chapter_number}.md").write_text(
+            make_parallel_reader(chapter_number), encoding="utf-8"
         )
 
     print(

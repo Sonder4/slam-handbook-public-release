@@ -17,6 +17,9 @@ nav:
   - 首页: index.md
   - 第 1 章：SLAM 的因子图: chapter-1.md
   - 第 2 章：高级状态变量表示: chapter-2.md
+  - 中英对照阅读:
+      - 第 1 章: parallel-chapter-1.md
+      - 第 2 章: parallel-chapter-2.md
   - English original:
       - Chapter 1: original-chapter-1.md
       - Chapter 2: original-chapter-2.md
@@ -35,6 +38,7 @@ markdown_extensions:
 
 extra_javascript:
   - javascripts/sidebar-controls.js
+  - javascripts/parallel-reader.js
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
