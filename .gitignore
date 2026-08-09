@@ -5,6 +5,7 @@ translation-zh/latex/*.log
 translation-zh/latex/*.out
 translation-zh/latex/*.toc
 translation-zh/latex/*.synctex.gz
+translation-zh/latex/*.pdf
 translation-zh/site/
 translation-zh/site-docs/
 translation-zh/content/assets/

@@ -89,7 +89,7 @@ $$
 \Phi_ {t} (\boldsymbol {x} _ {t - 1}; \boldsymbol {y}) = \boldsymbol {x} _ {t - 1} - \eta_ {t} \cdot \frac {\partial \mathcal {L} (\boldsymbol {x} _ {t - 1} , \boldsymbol {y})}{\partial \boldsymbol {x} _ {t - 1}},\tag{4.5}
 $$
 
-其中，$\eta _ { t }$ 是学习率，项 $\frac { \partial \mathcal { L } ( \pmb { x } _ { t - 1 } , \pmb { y } ) } { \partial \pmb { x } _ { t - 1 } }$ 可通过 AutoDif 计算。<sup>1</sup> 因此，可用 $\mathbfit { \mathbf { x } } _ { T }$ 近似替代 $\mathbf { \boldsymbol { x } } ^ { * }$，进而计算 $\nabla _ { \boldsymbol { y } } \boldsymbol { \mathcal { U } } ( \boldsymbol { y } )$；完整的展开系统可定义为
+其中，$\eta _ { t }$ 是学习率，项 $\frac { \partial \mathcal { L } ( \pmb { x } _ { t - 1 } , \pmb { y } ) } { \partial \pmb { x } _ { t - 1 } }$ 可通过 AutoDif 计算。<sup>1</sup> 因此，可用 $\mathbf { x } _ { T }$ 近似替代 $\mathbf { \boldsymbol { x } } ^ { * }$，进而计算 $\nabla _ { \boldsymbol { y } } \boldsymbol { \mathcal { U } } ( \boldsymbol { y } )$；完整的展开系统可定义为
 
 $$
 \boldsymbol {x} ^ {*} \approx \boldsymbol {x} _ {T} = \Phi (\boldsymbol {y}) = \left(\Phi_ {T} \circ \dots \circ \Phi_ {1} \circ \Phi_ {0}\right) (\boldsymbol {y}),\tag{4.6}

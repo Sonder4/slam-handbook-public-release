@@ -76,9 +76,6 @@ Copy-Item -LiteralPath $pdf -Destination (Join-Path $assets 'slam-handbook-zh.pd
 
 if (-not $SkipSite) {
     $mkdocs = Get-Command mkdocs -ErrorAction SilentlyContinue
-    if (-not $mkdocs) {
-        throw 'mkdocs was not found. Install it with: python -m pip install mkdocs-material pymdown-extensions'
-    }
     $webPreprocessor = Join-Path $PSScriptRoot 'prepare_web_markdown.py'
     $approvedChapterNumbers = @($chapterSources | ForEach-Object { $_.BaseName -replace '^chapter-', '' })
     & $python.Source $webPreprocessor --source (Join-Path $translationRoot 'content') --output (Join-Path $translationRoot 'site-docs') --english-source $englishSource --chapters $approvedChapterNumbers
@@ -86,7 +83,13 @@ if (-not $SkipSite) {
 
     Push-Location $translationRoot
     try {
-        & $mkdocs.Source build --strict --config-file 'mkdocs.yml'
+        if ($mkdocs) {
+            & $mkdocs.Source build --strict --config-file 'mkdocs.yml'
+        } else {
+            # Python user installs may expose the module without adding its
+            # Scripts directory to PATH.
+            & $python.Source -m mkdocs build --strict --config-file 'mkdocs.yml'
+        }
         if ($LASTEXITCODE -ne 0) { throw 'MkDocs build failed.' }
     } finally {
         Pop-Location
