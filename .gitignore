@@ -1,0 +1,9 @@
+translation-zh/latex/*.aux
+translation-zh/latex/*.fdb_latexmk
+translation-zh/latex/*.fls
+translation-zh/latex/*.log
+translation-zh/latex/*.out
+translation-zh/latex/*.toc
+translation-zh/latex/*.synctex.gz
+translation-zh/site/
+translation-zh/content/assets/

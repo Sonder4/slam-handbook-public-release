@@ -1,0 +1,3 @@
+/* Keep long equations readable on narrow Pages viewports. */
+.arithmatex { overflow-x: auto; overflow-y: hidden; }
+.md-typeset img { max-width: 100%; height: auto; }

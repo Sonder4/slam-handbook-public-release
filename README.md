@@ -1,5 +1,11 @@
 # SLAM Handbook Public Release
 
+## Chinese Translation (Chapters 1-2)
+
+This fork adds an authorized Chinese translation of Chapters 1 and 2, rebuilt as a Unicode XeLaTeX document and published through GitHub Pages. See [`translation-zh/README.md`](translation-zh/README.md) for the local build instructions, or visit the [中文翻译网站](https://sonder4.github.io/slam-handbook-public-release/).
+
+The original authors, editors, Cambridge University Press copyright notice, and source-project attribution are retained. The translation and generated PDF may only be redistributed within the applicable authorization.
+
 Together with a large number of experts in Simultaneous Localization and Mapping (SLAM) we are preparing the **SLAM Handbook** to be published by Cambridge University Press. This book will cover the theoretical background of SLAM, its applications, and its future as spatial AI. We expect this handbook will be a good guideline for those working in this field. 
 
 <img width="170" height="256" alt="sh-book-cover" src="https://github.com/user-attachments/assets/f529ffcf-9b9c-4f77-bfe3-ae0222a9296f" />

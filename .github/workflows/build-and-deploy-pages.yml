@@ -1,0 +1,78 @@
+name: Build Chinese translation and deploy Pages
+
+on:
+  push:
+    branches:
+      - main
+      - codex/chinese-ch1-2-pages
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install MiKTeX
+        shell: pwsh
+        run: choco install miktex --yes --no-progress
+
+      - name: Build PDF and website on Windows
+        shell: pwsh
+        run: |
+          $miktexBin = 'C:\Program Files\MiKTeX\miktex\bin\x64'
+          if (Test-Path -LiteralPath $miktexBin) { $env:Path = "$miktexBin;$env:Path" }
+          python -m pip install --disable-pip-version-check mkdocs-material pymdown-extensions
+          & .\translation-zh\scripts\build-windows.ps1
+
+      - name: Upload Pages site from Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-site
+          path: translation-zh/site
+          if-no-files-found: error
+
+      - name: Upload generated PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: slam-handbook-zh-ch1-2-pdf
+          path: translation-zh/dist/slam-handbook-zh-ch1-2.pdf
+          if-no-files-found: error
+
+  deploy-pages:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download Windows-built site
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-site
+          path: site
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

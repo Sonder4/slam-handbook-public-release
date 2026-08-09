@@ -1,0 +1,647 @@
+\chapter{高级状态变量表示}
+
+\textbf{作者：} Timothy Barfoot、Frank Dellaert、Michael Kaess、Jose Luis Blanco-Claraco
+
+上一章详细介绍了如何采用因子图范式建立并求解 SLAM 问题。为便于说明，我们有意避开了所估计状态变量的一些细节。本章重新审视状态变量的性质，并介绍现代 SLAM 形式化中普遍存在的两个重要主题。
+
+首先，我们需要更好的工具来处理带有特定约束的状态变量；这些约束为变量定义了一个流形，因此在优化时必须特别处理。SLAM 中存在许多流形，最常见的是与机器人旋转相关的流形（尤其是三维旋转，但平面旋转也属于这一类）。
+
+其次，状态变量的另一个方面来自时间本身的性质。上一章隐式地假设机器人以离散时间步在世界中运动。本章将引入轨迹的平滑连续时间表示，并讨论它们如何与因子图形式完全兼容。我们以 Barfoot [47] 为主要参考，并采用 Sola 等人 [1022] 的简化记号。
+
+\subsection{流形上的优化}
+
+在某些机器人问题中，可以使用向量值未知量；但在大多数实际场景中，我们必须处理三维旋转以及其他非向量流形。粗略地说，流形是一个拓扑闭合的曲面（例如圆的周长或球面）；重要的是，在每个点附近，流形局部上都类似于欧氏空间。处理流形需要更精密的数学工具，以考虑其特殊结构。本节讨论如何在流形上执行优化，这将在上一章向量空间优化框架的基础上展开。作为示例，图 2.1 对球面流形 $\mathcal M$ 及其切空间 $T_x\mathcal M$ 进行了可视化；切空间可作为 $x\in\mathcal M$ 处用于优化的局部坐标系。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{bbe04e3dd68402335deae02f97a01ba9bd5413b1b433cd0d96e4948fd713088a.jpg}
+\caption{图 2.1 对于球面流形 $\mathcal M$，$T_x\mathcal M$ 是局部切平面；配合局部基，可以定义局部坐标。}
+\label{fig:bbe04e3dd68402335deae02f97a01ba9bd5413b1b433cd0d96e4948fd713088a}
+\end{figure}
+
+\subsection{旋转与位姿}
+
+在 SLAM 语境中可以讨论许多流形，但最常见的两类用于表示旋转和位姿。旋转通常发生在二维（平面）或三维空间中，因此将旋转流形称为特殊正交群 $\mathrm{SO}(d)$，其中 $d=2$ 或 $3$。平面旋转矩阵 $R_a^b\in\mathrm{SO}(2)$ 的形式为
+
+\begin{equation}
+\boldsymbol {R} _ {a} ^ {b} = \left[ \begin{array}{c c} \cos \theta & - \sin \theta \\ \sin \theta & \cos \theta \end{array} \right],\tag{2.1}
+\end{equation}
+
+其中 $\theta\in\mathbb R$ 是旋转角，也是该情形下唯一的自由度。此外，$R_a^b$ 可将参考坐标系 $\mathcal F^a$ 中表示的二维向量（例如路标）旋转到 $\mathcal F^b$ 中：$\ell^b=R_a^b\ell^a$。
+
+三维旋转矩阵 $R_a^b\in\mathrm{SO}(3)$ 同样用于在两个坐标系之间旋转向量，只是此时向量处于三维空间。三维旋转矩阵有 9 个元素，但只有 3 个自由度（例如滚转、俯仰和偏航）。二维和三维旋转矩阵都必须满足约束
+
+\begin{equation*}
+\pmb { R } _ { a } ^ { b \top } \pmb { R } _ { a } ^ { b } = \mathbf { I }, \qquad \det (\boldsymbol {R} _ {a} ^ {b})=1,
+\end{equation*}
+
+以适当地限制自由度。
+
+机器人的位姿同时包含旋转变量 $R_a^b\in\mathrm{SO}(d)$ 和平移变量 $\pmb t_a^b\in\mathbb R^d$，总共有 $3(d-1)$ 个自由度。有时我们分别跟踪这两类量，并使用 $\{R_a^b,\pmb t_a^b\}\in\mathrm{SO}(d)\times\mathbb R^d$ 表示位姿。另一种方式是将它们组合成一个 $(d+1)\times(d+1)$ 的变换矩阵：
+
+\begin{equation}
+\boldsymbol {T} _ {a} ^ {b} = \left[ \begin{array}{c c} \boldsymbol {R} _ {a} ^ {b} & \boldsymbol {t} _ {a} ^ {b} \\ \boldsymbol {0} & 1 \end{array} \right].\tag{2.2}
+\end{equation}
+
+所有这类变换矩阵组成的流形称为特殊欧氏群 $\operatorname{SE}(d)$，其中 $d=2$ 表示平面运动，$d=3$ 表示三维运动。使用 $\operatorname{SE}(d)$ 的好处是，可以通过一次矩阵乘法同时对路标进行旋转和平移：
+
+\begin{equation}
+\underbrace {\left[ \begin{array}{c} \boldsymbol {\ell} ^ {b} \\ 1 \end{array} \right]} _ {\tilde {\boldsymbol {\ell}} ^ {b}} = \underbrace {\left[ \begin{array}{c c} \boldsymbol {R} _ {a} ^ {b} & \boldsymbol {t} _ {a} ^ {b} \\ \boldsymbol {0} & 1 \end{array} \right]} _ {\boldsymbol {T} _ {a} ^ {b}} \underbrace {\left[ \begin{array}{c} \boldsymbol {\ell} ^ {a} \\ 1 \end{array} \right]} _ {\tilde {\boldsymbol {\ell}} ^ {a}},\tag{2.3}
+\end{equation}
+
+其中 $\tilde\ell$ 是路标的齐次表示。
+
+由于旋转矩阵和变换矩阵的形式受到约束，它们并不是向量。例如，不能简单地将两个旋转矩阵相加，并期望结果仍是有效的旋转矩阵。不过，$\mathrm{SO}(d)$ 和 $\operatorname{SE}(d)$ 都属于具有额外有用结构的流形，即\textbf{矩阵 Lie 群}。我们可以利用这种结构，在因子图 SLAM 中继续执行无约束 MAP 优化（参见 Dellaert 等人 [255]、Boumal [106] 或 Barfoot [47]）。关于机器人中的 Lie 群，可参考 Chirikjian 和 Kyatkin [207] 以及 Chirikjian [205, 206] 的经典工作。
+
+\subsection{矩阵 Lie 群}
+
+在 $\mathrm{SO}(d)$ 和 $\operatorname{SE}(d)$ 上执行优化的关键，是利用它们的群结构。例如，矩阵 Lie 群在矩阵乘法下封闭：若 $R_b^c,R_a^b\in\mathrm{SO}(d)$，则乘积也属于该群，且 $R_a^c=R_b^cR_a^b\in\mathrm{SO}(d)$。
+
+矩阵 Lie 群还伴随一个非常有用的结构，称为 Lie 代数；它同时也是 Lie 群在单位元处的切空间。对我们而言，Lie 代数最重要的两个性质是：（i）它是一个向量空间，其维度等于对应 Lie 群的自由度数量；（ii）存在一个成熟的映射（矩阵指数）将 Lie 代数映射到 Lie 群。因此，可以从 Lie 代数元素相对容易地构造 Lie 群元素。例如，对于 SO(2)，暂时省略上下标，有
+
+\begin{equation}
+\boldsymbol {R} = \operatorname {Exp} (\theta) = \exp (\theta^ {\wedge}) = \sum _ {n = 0} ^ {\infty} \frac {1}{n !} (\theta^ {\wedge}) ^ {n} = \left[ \begin{array}{c c} \cos \theta & - \sin \theta \\ \sin \theta & \cos \theta \end{array} \right] \in \operatorname {SO} (2),\tag{2.4}
+\end{equation}
+
+其中
+
+\begin{equation}
+\theta^ {\wedge} = \left[ \begin{array}{c c} 0 & - \theta \\ \theta & 0 \end{array} \right], \qquad \theta \in \mathbb {R}.\tag{2.5}
+\end{equation}
+
+量 $\theta^\wedge$ 属于 Lie 代数 $\mathrm{so}(2)$，通过矩阵指数 $\exp(\cdot)$ 映射为 Lie 群元素 $R$。反向也可以使用矩阵对数和 vee 算子完成：$\theta=\operatorname{Log}(R)=(\log R)^\vee$。vee 算子 $(\cdot)^\vee$ 是 wedge 算子 $(\cdot)^\wedge$ 的逆。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{804afd145bba6076b0a4f9b2a7a50f021aa403f602569619e3b9cc5ac1ed7830.jpg}
+\caption{图 2.2 本章记号概览：wedge 算子 $(\cdot)^\wedge$ 与 vee 算子 $(\cdot)^\vee$，指数映射 $\exp(\cdot)$ 与对数映射 $\log(\cdot)$，以及便捷记号 $\operatorname{Exp}(\cdot)=\exp((\cdot)^\wedge)$ 和 $\operatorname{Log}(\cdot)=(\log(\cdot))^\vee$。图中以 $\mathrm{SO}(n)$ 为例，但这些算子对其他流形同样定义。}
+\label{fig:804afd145bba6076b0a4f9b2a7a50f021aa403f602569619e3b9cc5ac1ed7830}
+\end{figure}
+
+每个矩阵 Lie 群都有自己的线性 wedge 算子，用于从相应维度的标准向量空间构造 Lie 代数元素。对于 $\mathrm{SO}(3)$，它是反对称算子：
+
+\begin{equation}
+\boldsymbol {R} = \operatorname{Exp} (\boldsymbol {\theta}) = \exp (\boldsymbol {\theta} ^ {\wedge}) = \sum_ {n = 0} ^ {\infty} \frac {1}{n !} \boldsymbol {\theta} ^ {\wedge n} \in \mathrm{SO} (3),\tag{2.6a}
+\end{equation}
+
+\begin{equation}
+\boldsymbol {\theta} ^ {\wedge} = \left[ \begin{array}{c c c} 0 & - \theta_ {3} & \theta_ {2} \\ \theta_ {3} & 0 & - \theta_ {1} \\ - \theta_ {2} & \theta_ {1} & 0 \end{array} \right] \in \operatorname{so} (3), \quad \boldsymbol {\theta} = \left[ \begin{array}{c} \theta_ {1} \\ \theta_ {2} \\ \theta_ {3} \end{array} \right] \in \mathbb {R} ^ {3}.\tag{2.6b}
+\end{equation}
+
+对于 $\operatorname{SE}(d)$，可写成
+
+\begin{equation}
+\boldsymbol {T} = \mathrm{Exp} (\boldsymbol {\xi}) = \mathrm{exp} (\boldsymbol {\xi} ^ {\wedge}) \in \mathrm{SE} (d),\tag{2.7a}
+\end{equation}
+
+\begin{equation}
+\boldsymbol {\xi} ^ {\wedge} = \left[ \begin{array}{c c} \boldsymbol {\theta} ^ {\wedge} & \boldsymbol {\rho} \\ \mathbf {0} & 0 \end{array} \right] \in \operatorname{se} (d), \quad \boldsymbol {\xi} = \left[ \begin{array}{c} \boldsymbol {\rho} \\ \boldsymbol {\theta} \end{array} \right] \in \mathbb {R} ^ {3 (d - 1)}, \quad \boldsymbol {\theta} \in \mathbb {R} ^ {2 d - 3}, \quad \boldsymbol {\rho} \in \mathbb {R} ^ {d}.\tag{2.7b}
+\end{equation}
+
+这里 $d=2$（平面）或 $3$（三维）。注意，wedge 算子的具体版本可以由输入向量的大小确定。对于这里讨论的每个矩阵 Lie 群，Lie 代数与 Lie 群之间的映射还存在众所周知的闭式表达式，可以替代矩阵指数的无穷级数形式 [47]。
+
+\subsection{Lie 群优化}
+
+建立矩阵 Lie 群之后，就可以利用它们将非线性最小二乘项“线性化”，从而执行 MAP 推断。回顾第 1.3.1 节，我们仍然要线性化测量函数 $\pmb h_i(\cdot)$，只是其输入现在可能包含 Lie 群元素。
+
+例如，假设 $\pmb h_i(\cdot)$ 是一个相机模型，它接收在相机坐标系中表示的齐次路标 $\tilde\ell_i^c$，并返回图像中的像素坐标 $z_i\in\mathbb R^2$。传感器生成模型可写为
+
+\begin{equation}
+\boldsymbol {z} _ {i} = \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c} \tilde {\ell} _ {i} ^ {w}\right) + \boldsymbol {\eta} _ {i}.\tag{2.8}
+\end{equation}
+
+其中，$\pmb T_w^c\in\mathrm{SE}(3)$ 是相对于相机坐标系的世界坐标系位姿，$\tilde\ell_i^w$ 是在世界坐标系中表示的齐次路标，$\pmb\eta_i$ 是通常的传感器噪声。我们希望求解
+
+\begin{equation}
+\boldsymbol {T} _ {w} ^ {c ^ {*}} = \underset {\boldsymbol {T} _ {w} ^ {c}} {\arg \min} \sum_ {i} \left\| \boldsymbol {z} _ {i} - \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c} \tilde {\ell} _ {i} ^ {w}\right) \right\| _ {\boldsymbol {\Sigma} _ {i}} ^ {2},\tag{2.9}
+\end{equation}
+
+这就是透视 n 点（perspective-n-point，PNP）问题。本例假设世界坐标系中的路标位置已知；当然，在 SLAM 中也可能需要同时估计它们。
+
+为了线性化传感器模型，利用 Lie 代数产生位姿的扰动：
+
+\begin{equation}
+\pmb {T} _ {w} ^ {c} = \pmb {T} _ {w} ^ {c ^ {0}} \mathrm{Exp} (\pmb {\xi}).\tag{2.10}
+\end{equation}
+
+这里 $\pmb\xi\in\mathbb R^6$ 产生一个“小的”位姿变化，用于扰动初始猜测 $\pmb T_w^{c^0}\in\mathrm{SE}(3)$。也常用简写记号
+
+\begin{equation}
+\pmb {T} _ {w} ^ {c} = \pmb {T} _ {w} ^ {c ^ {0}} \oplus \pmb {\xi},\tag{2.11}
+\end{equation}
+
+它是式（2.10）的缩写。由于群的封闭性，这两个量的乘积必然属于 SE(3)。使用 Lie 代数定义位姿扰动，可以将其维度限制为三维位姿的实际自由度数量，从而在优化过程中无需额外引入约束。
+
+还可以用矩阵指数的级数形式近似扰动位姿：
+
+\begin{equation}
+\boldsymbol {T} _ {w} ^ {c} \approx \boldsymbol {T} _ {w} ^ {c ^ {0}} \left(\mathbf {I} + \boldsymbol {\xi} ^ {\wedge}\right).\tag{2.12}
+\end{equation}
+
+其中只保留了关于 $\pmb\xi$ 的一次项。将式（2.12）代入测量函数（式 2.8），得到
+
+\begin{equation}
+\boldsymbol {z} _ {i} \approx \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c ^ {0}} \left(\mathbf {I} + \boldsymbol {\xi} ^ {\wedge}\right) \tilde {\ell} _ {i} ^ {w}\right) + \boldsymbol {\eta} _ {i}.\tag{2.13}
+\end{equation}
+
+利用齐次点的线性算子 $\odot$，还可写成
+
+\begin{equation}
+\boldsymbol {z} _ {i} \approx \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c ^ {0}} \tilde {\ell} _ {i} ^ {w} + \boldsymbol {T} _ {w} ^ {c ^ {0}} \tilde {\ell} _ {i} ^ {w ^ {\odot}} \boldsymbol {\xi}\right) + \boldsymbol {\eta} _ {i},\tag{2.14}
+\end{equation}
+
+其中
+
+\begin{equation}
+\tilde {\boldsymbol {\ell}} ^ {\odot} = \left[ \begin{array}{c} \boldsymbol {\ell} \\ 1 \end{array} \right] ^ {\odot} = \left[ \begin{array}{c c} \mathbf {I} & - \boldsymbol {\ell} ^ {\wedge} \\ \mathbf {0} & \mathbf {0} \end{array} \right].\tag{2.15}
+\end{equation}
+
+现在还需对相机函数 $\pmb h_i(\cdot)$ 进行线性化。利用一阶泰勒展开，有
+
+\begin{equation}
+\boldsymbol {z} _ {i} \approx \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c ^ {0}} \tilde {\ell} _ {i} ^ {w}\right) + \underbrace {\left. \frac {\partial \boldsymbol {h} _ {i}}{\partial \boldsymbol {\ell}} \right| _ {\boldsymbol {T} _ {w} ^ {c ^ {0}} \tilde {\ell} _ {i} ^ {w}} \boldsymbol {T} _ {w} ^ {c ^ {0}} \tilde {\ell} _ {i} ^ {w ^ {\odot}}} _ {\boldsymbol {H} _ {i} (\text {链式法则})} \boldsymbol {\xi} + \boldsymbol {\eta} _ {i}.\tag{2.16}
+\end{equation}
+
+这里两部分相乘得到总体雅可比 $H_i=\partial h_i/\partial\xi$，其链式法则结构十分清晰。也可以将传感器模型分解成若干基本操作，并使用中间向量状态逐步求导；对于本例，利用链式法则，关于相机位姿的雅可比可以拆成传感器模型、位姿作用、位姿复合和指数映射四项的乘积：
+
+\begin{equation}
+\boldsymbol {H} _ {i} = \frac {\partial \boldsymbol {h} _ {i}}{\partial \boldsymbol {\xi}},\tag{2.17}
+\end{equation}
+
+各个单独雅可比都有已知表达式 [87]。注意，每个雅可比的线性化点都考虑了扰动发生在 $\pmb\xi=\mathbf0$ 附近这一事实。
+
+回到式（1.21b），该测量对应的线性化最小二乘项（即负对数因子）为
+
+\begin{equation}
+\left\| \left(\boldsymbol {z} _ {i} - \boldsymbol {h} _ {i} \left(\boldsymbol {T} _ {w} ^ {c ^ {0}} \tilde {\ell} _ {i} ^ {w}\right)\right) - \boldsymbol {H} _ {i} \boldsymbol {\xi} \right\| _ {\boldsymbol {\Sigma} _ {i}} ^ {2}.\tag{2.18}
+\end{equation}
+
+此时唯一未知量是位姿扰动 $\pmb\xi$。将其与其他因子结合并求得状态变量的最优更新（包括 $\pmb\xi^*$）后，需要按照式（2.10）的扰动方案更新初始猜测：
+
+\begin{equation}
+\boldsymbol {T} _ {w} ^ {c ^ {0}} \leftarrow \boldsymbol {T} _ {w} ^ {c ^ {0}} \oplus \boldsymbol {\xi} ^ {*}.\tag{2.19}
+\end{equation}
+
+这样可以确保解始终位于 SE(3) 中。优化照常迭代，直到所有状态更新（包括 $\pmb\xi$）的变化足够小。式（2.19）适用于右侧位姿扰动；也可以选择左侧扰动，具体讨论见 Barfoot [47]。
+
+有时测量本身也位于流形上。例如，可能获得一个带噪位姿测量 $\boldsymbol Z_i$，其值属于 $\pmb T_w^c\in\mathrm{SE}(3)$。此时在 Lie 代数中构造误差：
+
+\begin{equation}
+\left\| \mathrm{Log} \left(\pmb {T} _ {w} ^ {c} \pmb {Z} _ {i} ^ {- 1}\right) \right\| _ {\pmb {\Sigma} _ {i}} ^ {2} \approx \left\| \mathrm{Log} \left(\pmb {T} _ {w} ^ {c ^ {0}} \pmb {Z} _ {i} ^ {- 1}\right) - \pmb {H} _ {i} \pmb {\xi} \right\| _ {\pmb {\Sigma} _ {i}} ^ {2}.\tag{2.20}
+\end{equation}
+
+其中 $\pmb T_w^c$ 按前述方式扰动，$\pmb H_i$ 是该误差对应的雅可比 [47]。这样，任意类型的测量都可以在因子图范式中处理。
+
+总之，对于属于 Lie 群的状态变量，可以通过上述方式执行无约束优化。关键是将测量函数相对于 Lie 代数中的扰动线性化，如式（2.16）所示。多数情况下可以解析地完成；也可以利用数值方法或自动微分计算所需雅可比。更一般地，这种针对 Lie 群元素函数的优化方法属于黎曼优化 [106]：Lie 代数也是流形的切空间，因而优化被限制在位姿（或旋转）流形的切方向上；按式（2.19）更新则相当于将更新量重新收回流形。黎曼优化同样适用于并非矩阵 Lie 群的流形，且除了矩阵指数外还可以使用其他回缩映射。
+
+\subsection{不确定性与 Lie 群}
+
+我们通常将估计中的不确定性表示为服从某种分布的随机状态变量。第 1.2.2 节已经讨论过，高斯分布最为常用。对于向量变量 $x$，可写为
+
+\begin{equation}
+\boldsymbol {x} = \boldsymbol {\mu} + \boldsymbol {\delta}, \quad \boldsymbol {\delta} \sim \mathcal {N} (\boldsymbol {0}, \boldsymbol {\Sigma}),\tag{2.21}
+\end{equation}
+
+其中 $\pmb\mu$ 是均值，$\pmb\Sigma$ 是协方差矩阵，即将状态拆分为均值与零均值噪声之和。
+
+对于 Lie 群，不能简单地将噪声加到旋转矩阵 $R\in\mathrm{SO}(d)$ 上，因为这样会破坏群的封闭性，结果不再是有效旋转矩阵。通常使用矩阵指数的满射映射，将高斯噪声 $\pmb\delta$ 与“均值”旋转 $\bar{\pmb R}\in\mathrm{SO}(d)$ 组合：
+
+\begin{equation}
+\boldsymbol {R} = \bar {\boldsymbol {R}} \oplus \boldsymbol {\delta} = \bar {\boldsymbol {R}} \mathrm{Exp} (\boldsymbol {\delta}), \quad \boldsymbol {\delta} \sim \mathcal {N} (\boldsymbol {0}, \boldsymbol {\Sigma}),\tag{2.22}
+\end{equation}
+
+这样可保证 $R\in\mathrm{SO}(d)$。对于 $\operatorname{SE}(d)$ 同理：
+
+\begin{equation}
+\boldsymbol {T} = \bar {\boldsymbol {T}} \oplus \boldsymbol {\delta} = \bar {\boldsymbol {T}} \operatorname{Exp} (\boldsymbol {\delta}), \quad \boldsymbol {\delta} \sim \mathcal {N} (\boldsymbol {0}, \boldsymbol {\Sigma}),\tag{2.23}
+\end{equation}
+
+此时可保证 $\pmb T\in\mathrm{SE}(d)$，并且 $\pmb\delta$ 与 $\pmb\Sigma$ 的维度必须相应匹配。这种做法本质上是在切空间中定义高斯分布，再通过指数映射将其诱导为旋转上的噪声分布。也可以直接在旋转上定义概率分布，某些情况下这样具有计算优势；第 6 章将再次讨论。
+
+\subsection{Lie 群的其他工具}
+
+关于 Lie 群还可以讨论很多内容 [1033, 106]。为保持简洁，这里只汇集本章及后续章节会用到的几个有用事实。关于 Lie 群元素函数求导的更多细节将在第 4.3 节给出。
+
+\subsubsection{$\oplus$ 与 $\ominus$ 算子}
+
+前面已经使用 $\oplus$ 算子将 Lie 代数向量与 Lie 群元素组合。对于 $\operatorname{SE}(d)$，有
+
+\begin{equation}
+\boldsymbol {T} = \boldsymbol {T} ^ {0} \oplus \boldsymbol {\xi} = \boldsymbol {T} ^ {0} \mathrm{Exp} (\boldsymbol {\xi}) = \boldsymbol {T} ^ {0} \exp (\boldsymbol {\xi} ^ {\wedge}) \in \mathrm{SE} (d).\tag{2.24}
+\end{equation}
+
+还可以定义两个 Lie 群元素之间的“差”运算 $\ominus$：
+
+\begin{equation}
+\boldsymbol {T} = \boldsymbol {T} ^ {0} \mathrm{Exp} (\boldsymbol {\xi}) \quad \Longrightarrow \quad \boldsymbol {\xi} = \boldsymbol {T} \ominus \boldsymbol {T} ^ {0},\tag{2.25a}
+\end{equation}
+
+\begin{equation}
+\boldsymbol {\xi} = \boldsymbol {T} \ominus \boldsymbol {T} ^ {0} = \operatorname{Log} \left(\boldsymbol {T} ^ {0^{-1}} \boldsymbol {T}\right) = \log \left(\boldsymbol {T} ^ {0^{-1}} \boldsymbol {T}\right) ^ {\vee} \in \operatorname{se} (d).\tag{2.25b}
+\end{equation}
+
+这些算子可以将相关运算的细节抽象出来。
+
+\subsubsection{逆}
+
+进行扰动时，有时需要扰动旋转或变换矩阵的逆。在 $\operatorname{SE}(d)$ 中，直接有
+
+\begin{equation}
+\left(\boldsymbol {T} ^ {0} \oplus \boldsymbol {\xi}\right) ^ {- 1} = \operatorname{Exp}(\boldsymbol {\xi}) ^ {- 1} \boldsymbol {T} ^ {0^{-1}} = \operatorname{Exp}(-\boldsymbol {\xi}) \boldsymbol {T} ^ {0^{-1}} = (-\boldsymbol {\xi}) \oplus \boldsymbol {T} ^ {0^{-1}}.\tag{2.26}
+\end{equation}
+
+可以看到，扰动从右侧移到左侧，同时带有负号。
+
+\subsubsection{伴随}
+
+Lie 群的伴随表示，是将群元素视为其 Lie 代数线性变换的一种方式。对于 $\mathrm{SO}(d)$，伴随表示与群本身相同，故略去细节。对于 $\operatorname{SE}(d)$，伴随表示不同于群的基本表示，因此需要进一步说明。
+
+给定位姿 $T$，$\operatorname{SE}(d)$ 的伴随映射将局部坐标系中的 Lie 代数元素 $\pmb\xi^\wedge\in\mathrm{se}(d)$ 变换为全局坐标系中的元素 $\pmb\epsilon^\wedge\in\mathrm{se}(d)$：
+
+\begin{equation}
+\boldsymbol {\epsilon} ^ {\wedge} \oplus \boldsymbol {T} = \boldsymbol {T} \oplus \boldsymbol {\xi} ^ {\wedge},\tag{2.27}
+\end{equation}
+
+其对应的内自同构（共轭）映射为
+
+\begin{equation}
+\boldsymbol {\epsilon} ^ {\wedge} = \operatorname{Ad} _ {T} \boldsymbol {\xi} ^ {\wedge} = T \boldsymbol {\xi} ^ {\wedge} T ^ {- 1}.\tag{2.28}
+\end{equation}
+
+等价地，也可以用伴随矩阵 $\operatorname{Ad}(\pmb T)$ 将 $\pmb\xi\in\mathbb R^6$ 线性变换到 $\mathbb R^6$：
+
+\begin{equation}
+\operatorname{Ad} _ {\boldsymbol {T}} \boldsymbol {\xi} ^ {\wedge} = (\operatorname{Ad} (\boldsymbol {T}) \boldsymbol {\xi}) ^ {\wedge}.\tag{2.29}
+\end{equation}
+
+称 $\operatorname{Ad}(\pmb T)$ 为 $T$ 处 $\operatorname{SE}(d)$ 的伴随表示。若
+
+\begin{equation*}
+\boldsymbol {T}=\left[\begin{array}{cc}\boldsymbol R&\boldsymbol t\\\boldsymbol0&1\end{array}\right],
+\end{equation*}
+
+则
+
+\begin{equation}
+\operatorname{Ad}(\boldsymbol {T}) = \left[ \begin{array}{c c} \boldsymbol {R} & \boldsymbol {t} ^ {\wedge} \boldsymbol {R} \\ \boldsymbol {0} & \boldsymbol {R} \end{array} \right].\tag{2.30}
+\end{equation}
+
+伴随矩阵的一个用途，是把已知变换两侧的扰动互换：
+
+\begin{equation}
+\boldsymbol {T} \operatorname{Exp} (\boldsymbol {\xi}) = \operatorname{Exp} \left(\operatorname{Ad} (\boldsymbol {T}) \boldsymbol {\xi}\right) \boldsymbol {T}.\tag{2.31}
+\end{equation}
+
+这一等式不需要任何近似。
+
+\subsubsection{雅可比}
+
+每个 Lie 群都有相应的雅可比，用于联系群元素的变化与其 Lie 代数元素。以 $\mathrm{SO}(d)$ 为例，旋转矩阵 $R_a^b$ 与角速度 $\pmb\omega^b\in\mathbb R^{2d-3}$ 之间的运动学方程（Poisson 方程）为
+
+\begin{equation}
+\dot {\boldsymbol {R}} _ {a} ^ {b} = \boldsymbol {\omega} ^ {b ^ {\wedge}} \boldsymbol {R} _ {a} ^ {b}.\tag{2.32}
+\end{equation}
+
+这里 $\pmb\omega^b$ 表示坐标系 $\mathcal F^a$ 相对于 $\mathcal F^b$ 的角速度，并在 $\mathcal F^b$ 中表达。若将 $R_a^b$ 参数化为 $\exp(\pmb\theta)$，则等价地有
+
+\begin{equation}
+\dot {\pmb\theta} = \pmb J^{-1}(\pmb\theta)\pmb\omega^b,\tag{2.33}
+\end{equation}
+
+其中 $\pmb J(\pmb\theta)$ 是 $\mathrm{SO}(d)$ 的（左）雅可比。它在组合矩阵指数乘积时非常有用。例如，当 $\pmb\theta_1$ 足够小时，
+
+\begin{equation}
+\mathrm{Exp}(\pmb\theta_1)\mathrm{Exp}(\pmb\theta_2)\approx\mathrm{Exp}\left(\pmb\theta_2+\pmb J(\pmb\theta_2)^{-1}\pmb\theta_1\right).\tag{2.34}
+\end{equation}
+
+其级数形式为
+
+\begin{equation}
+\boldsymbol {J} (\boldsymbol {\theta}) = \sum_ {n = 0} ^ {\infty} \frac {1}{(n + 1) !} \left(\boldsymbol {\theta} ^ {\wedge}\right) ^ {n}.\tag{2.35}
+\end{equation}
+
+闭式表达式可参阅 Barfoot [47]。下文也用 $\pmb J(\pmb\xi)$ 表示 $\operatorname{SE}(d)$ 的左雅可比，具体含义由上下文决定。Lie 群雅可比也是利用可微神经网络估计位姿的核心工具（见第 4.2 节）。
+
+\section{连续时间轨迹}
+
+连续时间轨迹可以表示平滑的机器人运动。到目前为止，我们假设需要估计轨迹上的一系列离散位姿；但机器人通常在世界中相当平滑地运动，因此有必要采用更平滑的轨迹表示。连续时间轨迹主要有两类：参数化方法将已知的时间基函数组合成平滑轨迹，通常选择具有局部支撑的基函数（例如分段多项式/样条），从而保持因子图稀疏；非参数化方法利用核函数获得更强的表示能力，具体可以使用以时间为自变量的一维高斯过程（GP）表示轨迹。选择合适且具有物理动机的核函数后，GP 关联的因子图同样可以保持稀疏。
+
+连续时间轨迹不仅能保证平滑性，在处理高频传感器（如 IMU，见第 11.2 节）和/或异步传感器时尤其有用。若每收到一次测量就向因子图加入一个机器人位姿，那么高频传感器或不同传感器的异步采样会迅速产生难以处理的因子图。连续时间方法可以用远少于测量数量的变量表示轨迹，从而保持问题可处理。这对于旋转式激光雷达、雷达以及卷帘快门相机等存在运动畸变的传感器特别有价值，因为可以使用每个点或像素的精确时间戳，将其与该时刻的轨迹关联起来。
+
+完成 MAP 推断后，连续时间轨迹还允许在任意感兴趣时刻查询轨迹，而不仅限于测量时刻；可以进行插值，也可以谨慎地外推。这对 SLAM 输出的下游使用者很有帮助。将测量时刻、估计变量时刻与查询时刻分离，是参数化和非参数化连续时间方法的主要优势。
+
+\subsection{样条}
+
+参数化连续时间轨迹方法的思想，是使用 $K$ 个已知时间基函数 $\Psi_k(t)$ 的加权和表示位姿：
+
+\begin{equation}
+\boldsymbol {p} (t) = \sum_ {k = 1} ^ {K} \boldsymbol {\Psi} _ {k} (t) \boldsymbol {c} _ {k}.\tag{2.36}
+\end{equation}
+
+其中 $\pmb c_k$ 是未知系数。暂时仍在向量空间中讨论，后面再介绍 Lie 群上的实现。基函数通常选用样条，即分段多项式（例如 B 样条和三次 Hermite 多项式）。样条具有局部支撑，在其局部影响区域之外取零，因此非常有利。图 2.3 展示了这一设置：在任意时刻最多只有 4 个基函数非零，由此得到稀疏因子图。
+
+与前面的离散时间方法相比，主要区别是使用系数变量而不是位姿变量；但这与一般因子图方法完全兼容。当在时刻 $t_i$ 观测到路标 $\ell$ 时，传感器模型为
+
+\begin{equation}
+\boldsymbol {z} _ {i} = \boldsymbol {h} _ {i} (\boldsymbol {p} (t _ {i}), \boldsymbol {\ell}) + \boldsymbol {\eta} _ {i}.\tag{2.37}
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{abdd8e7b3af2c35776787d1be6ccefd148773139241eea52f9e85dbe4af53cf9.jpg}
+\caption{图 2.3 用参数化样条表示连续时间轨迹。任意时刻的位姿由具有局部支撑的已知基函数加权求和得到；每个路标测量对应一个连接 4 个系数变量和 1 个路标变量的五元因子，整体因子图仍然非常稀疏。}
+\label{fig:abdd8e7b3af2c35776787d1be6ccefd148773139241eea52f9e85dbe4af53cf9}
+\end{figure}
+
+代入式（2.36），有
+
+\begin{equation}
+\boldsymbol {z} _ {i} = \boldsymbol {h} _ {i} \left(\sum_ {k = 1} ^ {K} \Psi_ {k} (t _ {i}) \boldsymbol {c} _ {k}, \boldsymbol\ell\right) + \boldsymbol {\eta} _ {i}.\tag{2.38}
+\end{equation}
+
+如果基函数具有局部支撑，则在 $t_i$ 处只有一小部分系数处于激活状态。令 $\pmb x_i=[\pmb c_i^\top\ \pmb\ell^\top]^\top$ 表示 $t_i$ 处激活的系数变量以及路标变量，就重新得到
+
+\begin{equation}
+\boldsymbol {z} _ {i} = \boldsymbol {h} _ {i} (\boldsymbol {x} _ {i}) + \boldsymbol {\eta} _ {i}.\tag{2.39}
+\end{equation}
+
+于是可以使用一般方法构造非线性最小二乘问题并进行优化。
+
+如果基函数足够光滑，还可以方便地求取轨迹导数：
+
+\begin{equation}
+\dot {\pmb {p}} (t) = \sum_ {k = 1} ^ {K} \dot {\pmb {\Psi}} _ {k} (t) \pmb {c} _ {k}.\tag{2.40}
+\end{equation}
+
+这样就能处理依赖速度甚至更高阶导数的传感器输出，而优化变量仍是同一组系数；只需计算基函数的相应导数即可。
+
+通过 MAP 推断求得最优系数后，可以利用式（2.36）或式（2.40）在任意时刻查询轨迹及其导数。如果在推断过程中计算了系数估计的协方差（例如通过求信息矩阵的逆），还可以轻松将其映射为查询位姿或导数的协方差，因为式（2.36）和式（2.40）是线性关系；而基函数的局部支撑意味着只需使用相应的系数边缘协方差。
+
+\subsection{从参数化到非参数化}
+
+基本参数化连续时间方法的主要挑战，是必须决定基函数的类型和数量。基函数太多，容易对测量数据过拟合；太少，又可能没有足够能力表示真实轨迹形状，从而得到过度平滑的解。转向非参数化方法可以部分解决这一问题。
+
+为简化说明，本节暂时假设没有路标变量，只关注位姿变量。采用上一节的参数化方法，线性化最小二乘项（负对数因子）为
+
+\begin{equation}
+\left\| \left(\boldsymbol {z} _ {i} - \boldsymbol {h} _ {i} \left(\boldsymbol {x} _ {i} ^ {0}\right)\right) - \boldsymbol {H} _ {i} \boldsymbol {\Psi} _ {i} \delta_ {c, i} \right\| _ {\boldsymbol {\Sigma} _ {i}} ^ {2}.\tag{2.41}
+\end{equation}
+
+其中，$\pmb x_i^0$ 是当前解（激活的系数），$\delta_{c,i}$ 是激活系数的更新量，$\Psi_i$ 是在 $t_i$ 处求值并堆叠后的激活基函数，雅可比为
+
+\begin{equation}
+\boldsymbol {H} _ {i} = \left. \frac {\partial \boldsymbol {h} _ {i}}{\partial \boldsymbol {x}} \right| _ {\boldsymbol {x} _ {i} ^ {0}}.\tag{2.42}
+\end{equation}
+
+像以前一样收集各项，可以写成
+
+\begin{equation}
+\boldsymbol {\delta} _ {c} ^ {*} = \underset {\boldsymbol {\delta} _ {c}} {\arg \min} \left(\| \boldsymbol {b} - \boldsymbol {A} \boldsymbol {\Psi} \boldsymbol {\delta} _ {c} \| ^ {2} + \| \boldsymbol {\delta} _ {c} \| ^ {2}\right).\tag{2.43}
+\end{equation}
+
+这里加入了正则项 $\|\delta_c\|^2$，倾向于使解的描述长度保持合理，即偏好接近零的样条系数，从而帮助避免过拟合。最优解满足
+
+\begin{equation}
+\left(\boldsymbol {\Psi} ^ {\top} \boldsymbol {A} ^ {\top} \boldsymbol {A} \boldsymbol {\Psi} + \mathbf {I}\right) \delta_ {c} ^ {*} = \boldsymbol {\Psi} ^ {\top} \boldsymbol {A} ^ {\top} \boldsymbol {b}.\tag{2.44}
+\end{equation}
+
+这可以求得系数的最优更新 $\delta_c^*$。但我们真正关心的是位姿估计，而不是作为中间量的样条系数。测量时刻位姿变量的最优更新为 $\delta^*=\Psi\delta_c^*$。经过简单代数运算，可得
+
+\begin{equation}
+\left(\boldsymbol {A} ^ {\mathsf {T}} \boldsymbol {A} + \boldsymbol {K} ^ {- 1}\right) \boldsymbol {\delta} ^ {*} = \boldsymbol {A} ^ {\mathsf {T}} \boldsymbol {b},\tag{2.45}
+\end{equation}
+
+这是对式（1.25）正规方程的修改版本。核矩阵 $K=\Psi\Psi^\mathsf T$ 起到正则化或平滑函数的作用。式（2.45）看起来比式（2.44）包含更大的线性系统，因为位姿数量多于样条系数。不过，非参数方法可以利用内置的插值能力，最终减少实际需要求解的系统规模。
+
+为了摆脱显式基函数，可以使用所谓的核技巧，用所选核函数 $\mathcal K(t,t')$（例如平方指数核）的计算结果替代基函数的显式内积。构造核矩阵只需要计算基函数内积，因此令 $K=[\mathcal K(t_i,t_j)]_{ij}$ 即可。此时不再估计样条的系数（参数），因而称为非参数方法；但仍需调节所选核函数的超参数（例如平方指数核的长度尺度），以实现期望的轨迹平滑程度。由于式（2.45）需要核矩阵的逆，直接这样做似乎代价很高；下一节将说明如何选择核函数，使逆核矩阵非常稀疏。
+
+\subsection{高斯过程}
+
+下面构造一族经过专门设计的核函数，使逆核矩阵及其对应因子图保持稀疏。上一节说明，可以用核函数替换基函数，从而得到非参数连续时间方法；但若直接进行替换，逆核矩阵可能变得稠密。这里从另一条思路出发：图 2.4 给出了一个由本节思想得到的因子图示例，它既保持稀疏，又产生平滑轨迹。
+
+首先选择一个由白噪声驱动的线性时不变随机微分方程（SDE）：\textsuperscript{2}
+
+\begin{equation}
+\dot {\boldsymbol {x}} (t) = \boldsymbol {A} \boldsymbol {x} (t) + \boldsymbol {L} \boldsymbol {w} (t),\tag{2.46}
+\end{equation}
+
+其中 $\pmb w(t)=\mathcal{GP}(\mathbf0,\pmb{\mathcal Q}\delta(t-t'))$ 是零均值白噪声高斯过程，$\pmb{\mathcal Q}$ 是功率谱密度矩阵，$\delta(\cdot)$ 是 Dirac delta 函数。该 SDE 将充当运动先验。它可以写出闭式积分解：
+
+\begin{equation}
+\boldsymbol {x} (t) = \boldsymbol {\Phi} (t, t _ {1}) \boldsymbol {x} (t _ {1}) + \int_ {t _ {1}} ^ {t} \boldsymbol {\Phi} (t, s) \boldsymbol {L} \boldsymbol {w} (s) d s,\tag{2.47}
+\end{equation}
+
+其中 $\Phi(t,s)=\exp(A(t-s))$ 称为转移函数，$t_1$ 是第一次测量的时间戳。若初始状态均值为零，则后续状态均值也保持为零；状态的协方差函数（即核函数）为
+
+\begin{equation}
+\boldsymbol {\mathcal {K}} (t, t') = \boldsymbol {\Phi} (t, t _ {1}) \boldsymbol {\mathcal {K}} (t _ {1}, t _ {1}) \boldsymbol {\Phi} (t', t _ {1}) ^ {\top} + \int_ {t _ {1}} ^ {\min (t, t')} \boldsymbol {\Phi} (t, s) \boldsymbol {L} \boldsymbol {\mathcal Q} \boldsymbol {L} ^ {\top} \boldsymbol {\Phi} (t', s) ^ {\top} d s.\tag{2.48}
+\end{equation}
+
+在全部测量时刻计算核函数并构造核矩阵时，可以利用简洁关系
+
+\begin{equation}
+\boldsymbol {K} = \boldsymbol {\Phi} \boldsymbol {Q} \boldsymbol {\Phi} ^ {\mathsf T},\tag{2.49}
+\end{equation}
+
+其中 $Q=\operatorname{diag}(\mathcal K(t_1,t_1),Q_1,\ldots,Q_M)$，且
+
+\begin{equation}
+\boldsymbol {\Phi} = \left[ \begin{array}{c c c c c} \mathbf {I} & & & & \\ \boldsymbol {\Phi} (t _ {2}, t _ {1}) & \mathbf {I} & & & \\ \boldsymbol {\Phi} (t _ {3}, t _ {1}) & \boldsymbol {\Phi} (t _ {3}, t _ {2}) & \mathbf {I} & & \\ \vdots & \vdots & \vdots & \ddots & \\ \boldsymbol {\Phi} (t _ {M}, t _ {1}) & \boldsymbol {\Phi} (t _ {M}, t _ {2}) & \cdots & \boldsymbol {\Phi} (t _ {M}, t _ {M-1}) & \mathbf {I} \end{array} \right].\tag{2.50}
+\end{equation}
+
+其中
+
+\begin{equation*}
+Q_i=\int_{t_{i-1}}^{t_i}\Phi(t_i,s)L\mathcal QL^\top\Phi(t_i,s)^\top ds.
+\end{equation*}
+
+矩阵 $\Phi$ 是由各时间点之间的转移函数构成的下三角块矩阵，其对角块为单位阵。由于我们需要的是逆核矩阵，$K^{-1}=\Phi^{-\top}Q^{-1}\Phi^{-1}$；而 $Q$ 是块对角矩阵，逆可以逐个对角块计算。更重要的是，$\Phi^{-1}$ 只有主块对角线和紧邻其下的一个块对角线非零：
+
+\begin{equation}
+\boldsymbol {\Phi} ^ {- 1} = \left[ \begin{array}{c c c c c c} \mathbf {I} & & & & & \\ - \boldsymbol {\Phi} (t _ {2}, t _ {1}) & \mathbf {I} & & & & \\ & - \boldsymbol {\Phi} (t _ {3}, t _ {2}) & \mathbf {I} & & & \\ & & - \boldsymbol {\Phi} (t _ {4}, t _ {3}) & \ddots & & \\ & & & \ddots & \mathbf {I} \\ & & & & - \boldsymbol {\Phi} (t _ {M}, t _ {M - 1}) & \mathbf {I} \end{array} \right].\tag{2.51}
+\end{equation}
+
+因此，任意长度轨迹的逆核矩阵 $K^{-1}$ 都是块三对角的。根据前面对因子图的讨论，式（2.45）左端的稀疏性与因子图结构密切相关；这里 $K^{-1}$ 作为整条轨迹的运动先验，可以用非常稀疏的因子图表示。
+
+$K^{-1}$ 之所以具有这种稀疏因子图，是因为出发点 SDE 的状态具有马尔可夫性。实际含义是：根据式（2.46）想表达的运动先验，状态可能需要包含更高阶量，而不只是位姿，还包括其导数。例如，若希望采用“恒速”先验，可以选择
+
+\begin{equation}
+\underbrace {\left[ \begin{array}{c} \dot {\boldsymbol {p}} (t) \\ \dot {\boldsymbol {v}} (t) \end{array} \right]} _ {\dot {\boldsymbol {x}} (t)} = \underbrace {\left[ \begin{array}{c c} \mathbf {0} & \mathbf {I} \\ \mathbf {0} & \mathbf {0} \end{array} \right]} _ {\boldsymbol {A}} \underbrace {\left[ \begin{array}{c} \boldsymbol {p} (t) \\ \boldsymbol {v} (t) \end{array} \right]} _ {\boldsymbol {x} (t)} + \underbrace {\left[ \begin{array}{c} \mathbf {0} \\ \mathbf {I} \end{array} \right]} _ {\boldsymbol {L}} \boldsymbol {w} (t).\tag{2.52}
+\end{equation}
+
+这里的状态包含位姿及其导数。这种使用增广状态的形式有时称为同时轨迹估计与建图（STEAM），是 SLAM 的一种变体。
+
+上述连续时间轨迹估计实际上是高斯过程回归 [909] 的一个例子。建立这一联系后，在测量时刻求解状态，就可以利用 GP 插值在其他时刻查询轨迹的均值和协方差。采用稀疏核方法时，每次查询的代价相对于测量数量 $M$ 为常数，因为只涉及夹住查询时刻的两个估计状态。
+
+还可以利用 GP 插值减少所需控制点的数量，不必在每个测量时刻都设置控制点，这类似于 GP 的诱导点思想。例如，每次激光扫描设置一个控制点，但仍使用扫描过程中每个点的独立时间戳。这样，测量时刻、估计时刻和查询时刻可以彼此不同。GP 的核还提供了适当的正则化，因此无需担心设置过多估计时刻导致过拟合，但仍需有足够的估计时刻来捕捉轨迹细节。
+
+\subsection{Lie 群上的样条与高斯过程}
+
+当状态位于流形上时，同样可以使用样条和 GP 连续时间方法。若流形是 Lie 群，两种方法都利用 Lie 代数，但方式不同。下面先介绍样条，再介绍高斯过程。
+
+\subsubsection{Lie 群上的样条}
+
+使样条适用于 Lie 群的关键，是采用累积形式。对于向量空间，假设所有自由度使用相同基函数，式（2.36）可简化为
+
+\begin{equation}
+\boldsymbol {p} (t) = \sum_ {k = 1} ^ {K} \psi_ {k} (t) \boldsymbol {p} _ {k},\tag{2.53}
+\end{equation}
+
+其中 $\pmb p_k$ 是样条控制点，$\psi_k(t)$ 是标量基函数。将其改写为累积形式：
+
+\begin{equation}
+\boldsymbol {p} (t) = \psi_ {1} ^ {c} (t) \boldsymbol {p} _ {1} + \sum_ {k = 2} ^ {K} \psi_ {k} ^ {c} (t) \left(\boldsymbol {p} _ {k} - \boldsymbol {p} _ {k - 1}\right),\tag{2.54}
+\end{equation}
+
+其中累积基函数为
+
+\begin{equation}
+\psi_ {k} ^ {c} (t) = \sum_ {\ell = k} ^ {K} \psi_ {\ell} (t).\tag{2.55}
+\end{equation}
+
+例如，对时间间隔均匀为 $T$ 的线性插值，定义 $\alpha_k(t)=(t-(k-1)T)/T$，普通基函数为
+
+\begin{equation}
+\psi_1(t)=\begin{cases}1-\alpha_1(t),&0\le t<T\\0,&\text{其他情况},\end{cases}\quad
+\psi_K(t)=\begin{cases}\alpha_K(t),&(K-1)T\le t<KT\\0,&\text{其他情况},\end{cases}\tag{2.56}
+\end{equation}
+
+而对 $k=2,\ldots,K-1$，
+
+\begin{equation}
+\psi_k(t)=\begin{cases}\alpha_{k-1}(t),&(k-2)T\le t<(k-1)T\\1-\alpha_k(t),&(k-1)T\le t<kT\\0,&\text{其他情况}.
+\end{cases}\tag{2.57}
+\end{equation}
+
+对应的累积基函数为
+
+\begin{equation}
+\psi_1^c(t)=1,\qquad \psi_K^c(t)=\begin{cases}0,&t<(K-1)T\\\alpha_K(t),&(K-1)T\le t,\end{cases}\tag{2.58}
+\end{equation}
+
+以及对 $k=2,\ldots,K-1$，
+
+\begin{equation}
+\psi_k^c(t)=\begin{cases}0,&t<(k-1)T\\\alpha_k(t),&(k-1)T\le t<kT\\1,&kT\le t.
+\end{cases}\tag{2.59}
+\end{equation}
+
+图 2.5 展示了这些基函数的形状。
+
+累积基函数的主要优点是：在给定时间戳处，大多数基函数都不激活。对于线性样条，当 $(k-1)T\le t<kT$ 时，
+
+\begin{equation}
+\boldsymbol {p} (t) = \boldsymbol {p} _ {k - 1} + \psi_ {k} ^{c} (t) (\boldsymbol {p} _ {k} - \boldsymbol {p} _ {k - 1}).\tag{2.60}
+\end{equation}
+
+此时只需计算一个基函数；更高阶样条在任意时刻也只会有少量激活基函数。
+
+在 Lie 群上使用样条时，用 Lie 群运算（矩阵乘法）替代累积表达式中的加法。以线性样条为例，在 $(k-1)T\le t<kT$ 时，$\operatorname{SE}(d)$ 中的元素可以写成
+
+\begin{equation}
+\boldsymbol {T} (t) = \mathrm{Exp} \left(\psi_ {k} ^ {c} (t) \mathrm{Log} \left(\boldsymbol {T} _ {k} \boldsymbol {T} _ {k - 1} ^ {- 1}\right)\right) \boldsymbol {T} _ {k - 1}.\tag{2.61}
+\end{equation}
+
+这里选择了左侧扰动，当然也可以采用右侧扰动。将 $\pmb T(t_i)$ 代入任意测量表达式，在控制点 $\pmb T_k$ 的 Lie 代数扰动上进行线性化，即可用于 MAP 框架。由于基函数具有紧支撑，在一个测量时刻只有少量控制点激活。
+
+对于线性样条，式（2.61）可写为
+
+\begin{equation}
+\boldsymbol {T} (t) = \left(\boldsymbol {T} _ {k} \boldsymbol {T} _ {k - 1} ^ {- 1}\right) ^ {\alpha_ {k} (t)} \boldsymbol {T} _ {k - 1}.\tag{2.62}
+\end{equation}
+
+对 $\pmb T(t)$ 中的表达式进行线性化时，分别扰动两个控制位姿，使
+
+\begin{equation}
+\operatorname{Exp} (\boldsymbol {\xi} (t)) \boldsymbol {T} ^ {0} (t) = \left(\operatorname{Exp} (\boldsymbol {\xi} _ {k}) \boldsymbol {T} _ {k} ^ {0} \boldsymbol {T} _ {k - 1} ^ {0^{-1}} \operatorname{Exp} (- \boldsymbol {\xi} _ {k - 1})\right) ^ {\alpha_ {k} (t)} \operatorname{Exp} (\boldsymbol {\xi} _ {k - 1}) \boldsymbol {T} _ {k - 1} ^ {0}.\tag{2.63}
+\end{equation}
+
+插值位姿扰动 $\pmb\xi(t)$ 与两个控制点扰动 $\pmb\xi_k$、$\pmb\xi_{k-1}$ 的关系可近似为
+
+\begin{equation}
+\boldsymbol {\xi} (t) \approx (\boldsymbol {I} - \boldsymbol {A} (\alpha_ {k} (t))) \boldsymbol {\xi} _ {k - 1} + \boldsymbol {A} (\alpha_ {k} (t)) \boldsymbol {\xi} _ {k},\tag{2.64}
+\end{equation}
+
+其中
+
+\begin{equation}
+\boldsymbol {A} \left(\alpha_ {k} (t)\right) = \alpha_ {k} (t) \boldsymbol {J} \left(\alpha_ {k} (t) \boldsymbol {T} _ {k} ^ {0} \boldsymbol {T} _ {k - 1} ^ {0^{-1}}\right) \boldsymbol {J} \left(\boldsymbol {T} _ {k} ^ {0} \boldsymbol {T} _ {k - 1} ^ {0^{-1}}\right) ^ {- 1}.\tag{2.65}
+\end{equation}
+
+这里 $J(\cdot)$ 是 $\operatorname{SE}(d)$ 的左雅可比。利用式（2.64），即可将测量时刻位姿的变化与两侧控制点位姿关联起来，形成用于 MAP 估计的线性化误差。例如，式（2.16）的线性化测量模型可写成
+
+\begin{equation}
+\boldsymbol {e} _ {i} (t) \approx \boldsymbol {z} _ {i} - \boldsymbol {h} _ {i} \left(\boldsymbol {T} ^ {0} (t) \tilde {\ell} _ {i}\right) - \boldsymbol {H} _ {i} \boldsymbol {\xi} (t).\tag{2.66}
+\end{equation}
+
+将式（2.64）代入即可得到关于两侧控制点的线性化误差：
+
+\begin{equation}
+\pmb {e} _ {i} (t) \approx \pmb {z} _ {i} - \pmb {h} _ {i} \left(\pmb {T} ^ {0} (t) \tilde {\pmb {\ell}} _ {i}\right) - \pmb {H} _ {i} \left(\pmb {I} - \pmb {A} (\alpha _ {k} (t))\right) \pmb {\xi} _ {k - 1} - \pmb {H} _ {i} \pmb {A} (\alpha _ {k} (t)) \pmb {\xi} _ {k}.\tag{2.67}
+\end{equation}
+
+其中还需将 $t$ 时刻的名义位姿 $\pmb T^0(t)=(\pmb T_k^0\pmb T_{k-1}^{0^{-1}})^{\alpha_k(t)}\pmb T_{k-1}^0$ 代入 $h_i$ 和 $H_i$。这相当于沿线性样条链式传播导数；高阶样条也可以采用同样过程。
+
+\subsubsection{Lie 群上的高斯过程}
+
+在 Lie 群上使用高斯过程时，同样利用 Lie 代数。图 2.6 展示了相应的 GP 运动先验因子。根据所选运动先验，控制点状态也可以包含额外的轨迹导数。
+
+我们在一组控制点状态之间使用局部 GP，这与样条类似。对 $\operatorname{SE}(d)$，定义控制点之间的局部变量 $\pmb\xi_k(t)$。例如，对 $\operatorname{SE}(d)$ 的“随机游走”先验，可以选择
+
+\begin{equation}
+\dot {\pmb {\xi}} _ {k} (t) = \pmb {w} (t), \quad \pmb {w} (t) = \mathcal {GP} (\pmb {0}, \pmb {\mathcal {Q}} \delta (t - t ^ {\prime})),\tag{2.68}
+\end{equation}
+
+这里的变量定义在控制点 $\pmb T_k$ 和 $\pmb T_{k+1}$ 之间。该 SDE 的转移函数为单位阵，随机积分得到
+
+\begin{equation}
+\boldsymbol {\xi} _ {k} (t) = \underbrace {\boldsymbol {\xi} _ {k} (t _ {k})} _ {\mathbf {0}} + \int_ {t _ {k}} ^ {t} \boldsymbol {w} (s) d s,\tag{2.69}
+\end{equation}
+
+于是运动先验为
+
+\begin{equation}
+\boldsymbol {\xi} _ {k} (t) \sim \mathcal {GP} (\mathbf {0}, \min (t, t ^ {\prime}) \boldsymbol {\mathcal {Q}}).\tag{2.70}
+\end{equation}
+
+若控制点每隔 $T$ 秒均匀分布，则逆核矩阵为 $\kappa^{-1}=\Phi^{-\top}Q^{-1}\Phi^{-1}$，其中
+
+\begin{equation}
+\boldsymbol {\Phi} ^ {- 1} = \left[ \begin{array}{c c c c} \mathbf {I} & & & \\ - \mathbf {I} & \mathbf {I} & & \\ & \ddots & \ddots & \\ & & - \mathbf {I} & \mathbf {I} \end{array} \right], \quad \boldsymbol {Q} = \operatorname{diag} \left(\boldsymbol {\mathcal {K}} (t _ {1}, t _ {1}), T \boldsymbol {\mathcal {Q}}, \ldots , T \boldsymbol {\mathcal {Q}}\right).\tag{2.71}
+\end{equation}
+
+局部变量下的误差为
+
+\begin{equation}
+\boldsymbol {e} _ {k} = \left\{ \begin{array}{l l} \mathrm{Log} (\boldsymbol {T} _ {1} \check {\boldsymbol {T}} _ {1} ^ {- 1}) & k = 1 \\ \boldsymbol {\xi} _ {k - 1} (t _ {k}) - \boldsymbol {\xi} _ {k - 1} (t _ {k - 1}) & k > 1 \end{array} \right.,\tag{2.72}
+\end{equation}
+
+其中 $\check{\pmb T}_1$ 是初始位姿先验。用全局变量表示时，同一误差为
+
+\begin{equation}
+\boldsymbol {e} _ {k} = \left\{ \begin{array}{l l} \operatorname{Log} \left(\boldsymbol {T} _ {1} \check {\boldsymbol {T}} _ {1} ^ {- 1}\right) & k = 1 \\ \operatorname{Log} \left(\boldsymbol {T} _ {k} \boldsymbol {T} _ {k - 1} ^ {- 1}\right) & k > 1 \end{array} \right..\tag{2.73}
+\end{equation}
+
+图 2.6 给出了这种随机游走 GP 运动先验的因子图。与线性样条类似，若要在其他时刻查询轨迹，可以使用 GP 插值；对于随机游走先验，结果再次是线性插值：
+
+\begin{equation}
+\pmb {T} (t) = \left(\pmb {T} _ {k} \pmb {T} _ {k - 1} ^ {- 1}\right) ^ {\alpha_ {k} (t)} \pmb {T} _ {k - 1},\tag{2.74}
+\end{equation}
+
+其中 $\alpha_k(t)=(t-(k-1)T)/T$，且 $(k-1)T\le t<kT$。与样条方法不同，这里的线性插值是 SDE 选择的间接结果，而不是显式指定的形式；如果一开始选择高阶 SDE，就会得到高阶插值样条。
+
+最后，需要将误差项线性化以用于 MAP 估计。再次利用 Lie 群扰动方法，对于式（2.73）的第二种情形，有
+
+\begin{equation}
+\begin{array}{c} \boldsymbol {e} _ {k} = \operatorname{Log} \left(\operatorname{Exp} (\boldsymbol {\xi} _ {k}) \boldsymbol {T} _ {k} ^ {0} \boldsymbol {T} _ {k - 1} ^ {0^{-1}} \operatorname{Exp} (- \boldsymbol {\xi} _ {k - 1})\right) \\ \approx \operatorname{Log} \left(\boldsymbol {T} _ {k} ^ {0} \boldsymbol {T} _ {k - 1} ^ {0^{-1}}\right) + \boldsymbol {\xi} _ {k} - \operatorname{Ad} \left(\boldsymbol {T} _ {k} ^ {0} \boldsymbol {T} _ {k - 1} ^ {0^{-1}}\right) \boldsymbol {\xi} _ {k - 1}, \end{array}\tag{2.75}
+\end{equation}
+
+其中 $\pmb T_k^0$ 和 $\pmb T_{k-1}^0$ 是当前猜测，$\pmb\xi_k$ 和 $\pmb\xi_{k-1}$ 是待求扰动，$\operatorname{Ad}(\cdot)$ 是 $\operatorname{SE}(d)$ 的伴随表示。式（2.75）的线性化形式可以在每次迭代中直接纳入标准 MAP 估计框架。
+
+此外，若想利用式（2.74）减少随机游走示例中的控制点数量，可以采用式（2.67）中针对线性样条的同一方法，因为两者最终都归结为 Lie 群控制点之间的线性插值。样条与 GP 的根本区别在于：GP 方法使用运动先验项（见图 2.6）对问题进行正则化，而样条方法不使用这种先验。\textsuperscript{4}
+
+\section{延伸阅读与近期趋势}
+
+关于流形，尤其是 Lie 群上的估计，已有大量研究。机器人领域的奠基性参考是 Chirikjian [205] 及 Chirikjian 和 Kyatkin [207]；这些著作理论基础扎实，并给出了处理流形不确定性的通用工具，包括全局不确定性。关于流形优化，Boumal [106] 是面向机器人应用的优秀参考。Barfoot [47] 更详细地讨论了不确定性仍较为集中的 Lie 群估计，这与本章内容相近。连续时间估计方面，Talbot 等人 [1067] 提供了参数化和非参数化方法的综合综述；Barfoot [47] 也对非参数方法作了较为详细的说明。
+
+与上一章类似，离群点处理、使算法可微，以及利用本章工具支持不同类型的传感器等近期趋势，将在后续章节中进一步讨论。
