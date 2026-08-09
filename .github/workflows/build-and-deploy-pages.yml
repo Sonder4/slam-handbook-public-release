@@ -25,7 +25,17 @@ jobs:
 
       - name: Install MiKTeX
         shell: pwsh
-        run: choco install miktex --yes --no-progress
+        run: |
+          $installed = $false
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install miktex --yes --no-progress --force
+            if ($LASTEXITCODE -eq 0) {
+              $installed = $true
+              break
+            }
+            if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
+          }
+          if (-not $installed) { throw 'MiKTeX installation failed after three attempts.' }
 
       - name: Initialize MiKTeX packages
         shell: pwsh
