@@ -1,5 +1,5 @@
 site_name: SLAM Handbook 中文翻译
-site_description: SLAM Handbook 第 1、2 章中文翻译、LaTeX 源码与 PDF
+site_description: SLAM Handbook 已审查中文翻译、LaTeX 源码与 PDF
 site_url: https://sonder4.github.io/slam-handbook-public-release/
 docs_dir: site-docs
 site_dir: site
@@ -17,12 +17,18 @@ nav:
   - 首页: index.md
   - 第 1 章：SLAM 的因子图: chapter-1.md
   - 第 2 章：高级状态变量表示: chapter-2.md
+  - 第 3 章：对错误数据关联和离群值的鲁棒性: chapter-3.md
+  - 第 4 章：可微优化: chapter-4.md
   - 中英对照阅读:
       - 第 1 章: parallel-chapter-1.md
       - 第 2 章: parallel-chapter-2.md
+      - 第 3 章: parallel-chapter-3.md
+      - 第 4 章: parallel-chapter-4.md
   - English original:
       - Chapter 1: original-chapter-1.md
       - Chapter 2: original-chapter-2.md
+      - Chapter 3: original-chapter-3.md
+      - Chapter 4: original-chapter-4.md
 
 plugins:
   - search

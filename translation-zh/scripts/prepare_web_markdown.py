@@ -13,16 +13,16 @@ from pathlib import Path
 IMAGE_RE = re.compile(r"^!\[\]\(([^)]+)\)\s*$")
 CAPTION_RE = re.compile(r"^图\s+(\d+\.\d+)\b")
 ENGLISH_CAPTION_RE = re.compile(r"^Figure\s+\d+\.\d+\b")
-ENGLISH_FIGURE_REF_RE = re.compile(r"Figure\s+(?P<number>[12]\.\d+)\b")
+ENGLISH_FIGURE_REF_RE = re.compile(r"Figure\s+(?P<number>\d+\.\d+)\b")
 ENGLISH_FORMULA_REF_RE = re.compile(
-    r"(?P<label>Equation\s*\(?\s*(?P<number>[12]\.\d+[a-z]?)\s*\)?)"
+    r"(?P<label>Equation\s*\(?\s*(?P<number>\d+\.\d+[a-z]?)\s*\)?)"
 )
 TAG_RE = re.compile(r"\\tag\s*\{([^{}]+)\}")
 CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
 AUTHOR_RE = re.compile(r"^\*\*作者：\*\*")
-FIGURE_REF_RE = re.compile(r"图\s*(?P<number>[12]\.\d+)\b")
+FIGURE_REF_RE = re.compile(r"图\s*(?P<number>\d+\.\d+)\b")
 FORMULA_REF_RE = re.compile(
-    r"(?P<label>(?:式|公式)\s*[（(]\s*(?P<number>[12]\.\d+[a-z]?)\s*[）)])"
+    r"(?P<label>(?:式|公式)\s*[（(]\s*(?P<number>\d+\.\d+[a-z]?)\s*[）)])"
 )
 INLINE_MATH_RE = re.compile(r"(?<!\$)\$(?!\$).*?(?<!\$)\$")
 
@@ -234,6 +234,10 @@ def source_chapter_range(lines: list[str], chapter_number: str) -> tuple[int, in
     chapter_titles = {
         "1": "Factor Graphs for SLAM Frank Dellaert, Michael Kaess, and Timothy Barfoot",
         "2": "Advanced State Variable Representations",
+        "3": "# Robustness to Incorrect Data Association and Outliers",
+        "4": "Chen Wang, Krishna Murthy Jatavallabhula, and Mustafa Mukadam",
+        "5": "Dense Map Representations",
+        "6": "# Certifiably Optimal Solvers and Theoretical Properties of SLAM",
     }
     start = next(
         index
@@ -242,9 +246,9 @@ def source_chapter_range(lines: list[str], chapter_number: str) -> tuple[int, in
         and index > 500
     )
     next_title = (
-        "Advanced State Variable Representations"
-        if chapter_number == "1"
-        else "# Robustness to Incorrect Data Association and Outliers"
+        chapter_titles[str(int(chapter_number) + 1)]
+        if chapter_number != "6"
+        else "PART II SLAM IN PRACTICE"
     )
     end = next(
         index
@@ -266,11 +270,26 @@ ENGLISH_CHAPTER_METADATA = {
         "title": "Advanced State Variable Representations",
         "authors": "Timothy Barfoot, Frank Dellaert, Michael Kaess, and Jose Luis Blanco-Claraco",
     },
-}
-
-PARALLEL_CHAPTER_TITLES = {
-    "1": "第 1 章中英对照阅读",
-    "2": "第 2 章中英对照阅读",
+    "3": {
+        "source_title": "# Robustness to Incorrect Data Association and Outliers",
+        "title": "Robustness to Incorrect Data Association and Outliers",
+        "authors": "Heng Yang, Josh Mangelson, Yun Chang, Jingnan Shi, Niko Sunderhauf, and Luca Carlone",
+    },
+    "4": {
+        "source_title": "Chen Wang, Krishna Murthy Jatavallabhula, and Mustafa Mukadam",
+        "title": "Differentiable Optimization",
+        "authors": "Chen Wang, Krishna Murthy Jatavallabhula, and Mustafa Mukadam",
+    },
+    "5": {
+        "source_title": "Dense Map Representations",
+        "title": "Dense Map Representations",
+        "authors": "Victor Reijgwart, Jens Behley, Teresa Vidal-Calleja, Helen Oleynikova, Lionel Ott, Cyrill Stachniss and Ayoung Kim",
+    },
+    "6": {
+        "source_title": "# Certifiably Optimal Solvers and Theoretical Properties of SLAM",
+        "title": "Certifiably Optimal Solvers and Theoretical Properties of SLAM",
+        "authors": "David M. Rosen, Kasra Khosoussi, Connor Holmes, Gamini Dissanayake, Timothy Barfoot, and Luca Carlone",
+    },
 }
 
 
@@ -370,7 +389,7 @@ def make_parallel_reader(chapter_number: str) -> str:
 
     return "\n".join(
         [
-            f"# {PARALLEL_CHAPTER_TITLES[chapter_number]}",
+            f"# 第 {chapter_number} 章中英对照阅读",
             "",
             '<nav class="chapter-reader-links" aria-label="章节阅读模式">',
             f'<a href="../chapter-{chapter_number}/">中文单页</a>',
@@ -403,13 +422,28 @@ def main() -> int:
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--english-source", type=Path, required=True)
+    parser.add_argument(
+        "--chapters",
+        nargs="+",
+        help="Approved chapter numbers to publish. Defaults to every translated chapter.",
+    )
     args = parser.parse_args()
 
     source_dir = args.source.resolve()
     output_dir = args.output.resolve()
     if source_dir == output_dir:
         raise ValueError("Website output directory must differ from the source directory.")
-    chapters = sorted(source_dir.glob("chapter-*.md"))
+    available_chapters = {
+        path.stem.rsplit("-", 1)[1]: path for path in source_dir.glob("chapter-*.md")
+    }
+    requested_chapters = args.chapters or available_chapters.keys()
+    missing_chapters = [number for number in requested_chapters if number not in available_chapters]
+    if missing_chapters:
+        raise ValueError(
+            "Approved chapter source is missing: " + ", ".join(sorted(missing_chapters, key=int))
+        )
+    chapters = [available_chapters[number] for number in requested_chapters]
+    chapters.sort(key=lambda path: int(path.stem.rsplit("-", 1)[1]))
     if not chapters:
         raise ValueError(f"No chapter Markdown files found in {source_dir}")
 
@@ -418,20 +452,27 @@ def main() -> int:
     all_formulas = {
         number for lines in chapter_lines.values() for number in discover_formulas("\n".join(lines))
     }
-    if len(all_formulas) != 148:
-        raise ValueError(f"Expected 148 tagged equations, found {len(all_formulas)}")
+    if len(all_formulas) != len(set(all_formulas)):
+        raise ValueError("Duplicate tagged equations found across translated chapters.")
 
     if output_dir.exists():
         shutil.rmtree(output_dir)
     shutil.copytree(source_dir, output_dir)
     shutil.rmtree(output_dir / "original", ignore_errors=True)
+    published_numbers = {chapter.stem.rsplit("-", 1)[1] for chapter in chapters}
+    for unpublished_chapter in output_dir.glob("chapter-*.md"):
+        if unpublished_chapter.stem.rsplit("-", 1)[1] not in published_numbers:
+            unpublished_chapter.unlink()
     for chapter in chapters:
         destination = output_dir / chapter.name
         destination.write_text(
             transform_chapter(chapter, all_figures, all_formulas), encoding="utf-8"
         )
     english_lines = args.english_source.read_text(encoding="utf-8-sig").splitlines()
-    for chapter_number in ("1", "2"):
+    chapter_numbers = [path.stem.rsplit("-", 1)[1] for path in chapters]
+    for chapter_number in chapter_numbers:
+        if chapter_number not in ENGLISH_CHAPTER_METADATA:
+            raise ValueError(f"English source metadata is missing for Chapter {chapter_number}.")
         destination = output_dir / f"original-chapter-{chapter_number}.md"
         destination.write_text(
             transform_english_chapter(english_lines, chapter_number), encoding="utf-8"
@@ -441,7 +482,7 @@ def main() -> int:
         )
 
     print(
-        f"Prepared {len(chapters)} Chinese chapters, 2 English chapters, "
+        f"Prepared {len(chapters)} Chinese chapters, {len(chapter_numbers)} English chapters, "
         f"{len(all_formulas)} equations, and {len(all_figures)} figures."
     )
     return 0

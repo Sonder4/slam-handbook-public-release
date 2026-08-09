@@ -1,0 +1,430 @@
+# 《SLAM Handbook：从定位与建图到空间智能》
+
+## 第 4 章  可微优化
+
+**作者：** Chen Wang、Krishna Murthy Jatavallabhula、Mustafa Mukadam
+
+如第 I 章所述，当代 SLAM 系统的设计通常遵循前端与后端架构。在这一架构中，前端通常负责预处理传感器数据，并生成机器人轨迹和环境地图的初始估计；后端则细化这些初始估计，以提升整体精度。机器学习的近期进展带来了基于深度神经网络的新方法，有望增强 SLAM 前端的部分功能。例如，基于深度学习的方法在特征检测与匹配 [971, 267, 1267] 以及前端运动估计 [1167, 1082] 中表现出令人瞩目的性能。这些方法从大量样例构成的数据集训练神经网络，而无须针对任务显式编程。与此同时，基于几何的方法仍然是 SLAM 后端不可或缺的组成部分，主要原因在于它们具有普适性，并能通过求解优化问题产生全局一致的估计 [1208]。
+
+原则上，可以将基于学习的 SLAM 前端直接接入 SLAM 架构，再将相应输出送入后端；但学习技术的使用也为不再单向的信息交换打开了空间。具体而言，后端现在可以向前端提供反馈，使前端能够直接从后端估计中学习，从而让两个模块以更协调的方式共同降低估计误差。调和几何方法与深度学习、利用两者的互补优势，是大量近期 SLAM 工作的一条主线。特别是，一个新兴趋势是对 SLAM 后端中出现的基于几何的优化问题进行微分。直观而言，对一个优化问题进行微分，可以理解该问题的最优解（例如 SLAM 估计）如何依赖于该问题的参数；在这里，这些参数就是学习型前端产生的测量。由此可以优化前端以最大化 SLAM 精度。也可以将其视为一个双层优化问题：上层优化过程受制于下层优化；具体来说，用于训练前端的基于神经网络的优化受制于根据给定前端输出计算 SLAM 解的基于几何的优化。
+
+能够端到端地穿过优化过程计算梯度，是求解双层优化问题的核心；这使神经模型能够利用优化所编码的几何先验。这一方案的灵活性已在诸多应用中带来很有前景的先进结果，例如运动恢复（structure from motion）[1080]、运动规划 [81, 1216]、SLAM [511, 1082]、束调整（BA）[1068, 1267]、状态估计 [1244, 182] 和图像配准 [716]。
+
+本章介绍如何对 SLAM 中出现的非线性最小二乘问题进行微分的基础知识。具体地，第 4.1 节重述非线性最小二乘（nonlinear least squares，NLS）问题；第 4.2 节说明如何穿过 NLS 问题进行微分；第 4.3 节讨论定义在流形上的问题如何微分；第 4.4 节讨论上述微分的数值挑战，并介绍相关机器学习库；最后，第 4.5 节给出当代 SLAM 系统中可微优化的示例。
+
+## 4.1 非线性最小二乘回顾
+
+非线性最小二乘（NLS）通过最小化观测值与模型预测值之差的平方和来估计模型参数。与线性最小二乘不同，NLS 中的模型关于参数是非线性的。除第 1 章中的因子图外，这一方法也广泛用于统计学、物理学和工程学等领域；当变量之间的关系并不直接时，它有助于将复杂模型拟合到数据，从而实现更准确且更鲁棒的预测。
+
+具体地，NLS 通过求解下式来寻找变量 $\pmb { x } \in \mathbb { R } ^ { n }$：
+
+$$
+\boldsymbol {x} ^ {*} = \underset {\boldsymbol {x}} {\arg \min} \mathcal {L} (\boldsymbol {x}) = \underset {\boldsymbol {x}} {\arg \min} \frac {1}{2} \sum_ {i} | | \underbrace {w _ {i} \boldsymbol {c} _ {i} (\boldsymbol {x} _ {i})} _ {\boldsymbol {r} _ {i} (\boldsymbol {x} _ {i})} | | ^ {2},\tag{4.1}
+$$
+
+其中，目标函数 $\mathcal { L }(\pmb{x})$ 是向量值残差项 $\pmb{r}_i$ 的平方和；每个残差项都是优化变量 $\pmb{x} = \{\pmb{x}_i\}$ 的（可能相互重叠的）子集 $\pmb{x}_i \subset \pmb{x}$ 的函数。当前假定 $\pmb{x}_i$ 为向量；在本章后续内容中，将讨论推广至变量属于流形的情形。为保持灵活性，这里将残差 $\pmb{r}_i(\pmb{x}_i) = w_i\pmb{c}_i(\pmb{x}_i)$ 表示为权重 $w_i$ 与向量代价 $\pmb{c}_i$ 的乘积。
+
+如第 1 章所述，NLS 通常通过迭代方式求解：先在当前变量附近线性化非线性目标，得到线性系统 $\left(\sum_i \pmb{J}_i^{\top}\pmb{J}_i\right)\delta\pmb{x} = -\sum_i \pmb{J}_i^{\top}\pmb{r}_i$；再求解该线性系统以获得更新量 $\delta\pmb{x}$；最后按 $\pmb{x} \leftarrow \pmb{x} + \delta\pmb{x}$ 更新变量，直至收敛。第 2 章还指出，对于属于流形的变量，更新步骤中的加法更一般地是一个回缩映射（retraction mapping）。在线性系统中，
+
+![](images/9b6b12b1a1fc2f68504689c35738c5b599e7879244940e04019aecab1553f5c4.jpg)  
+图 4.1 现代 SLAM 系统通常同时包含神经网络和非线性最小二乘。为消除分别优化两个模块所引入的复合误差，可将整个系统表述为包含上层代价和下层代价的双层优化，从而进行端到端优化。
+
+$J _ { i } = [ \partial { \pmb r } _ { i } / \partial { \pmb x } ]$ 是残差关于变量的雅可比矩阵。上述迭代方法称为 Gauss-Newton（GN），是一种（近似）二阶的非线性优化器，因为 $\sum _ { i } J _ { i } ^ { \top } J _ { i }$ 是 Hessian 矩阵的近似。为改善鲁棒性和收敛性，Levenberg-Marquardt（LM）等变体会对线性系统施加阻尼；另一些方法则利用线搜索调整更新步长，例如第 1 章介绍的 Dogleg 方法。
+
+## 4.2 穿过非线性最小二乘进行微分
+
+为将深度学习与非线性最小二乘无缝结合，通常需要可微非线性最小二乘（differentiable nonlinear least squares，DNLS）来求解图 4.1 所示的优化问题。这要求计算解 $\pmb { x } ^ { * }$ 关于上层神经模型任意参数 $y$ 的梯度；这些参数决定目标函数 $\mathcal { U } ( \pmb { x } ; \pmb { y } )$，进而决定任意代价 $c _ { i } ( { \pmb x } _ { i } ; { \pmb y } )$ 或变量初始化 ${ \pmb x } _ { \mathrm { i n i t } } ( { \pmb y } )$。目标是利用以 $x$ 为函数定义的下层学习目标 $\mathcal { L }$，端到端地学习参数 $y$。这构成一个双层优化（Bilevel Optimization，BLO）问题，可写为：
+
+$$
+\boldsymbol {y} ^ {*} = \arg \min _ {\boldsymbol {y} \in \Theta} \mathcal {U} (\boldsymbol {y}, \boldsymbol {x} ^ {*}),\tag{4.2a}
+$$
+
+$$
+\text { s.   t. } \quad \boldsymbol {x} ^ {*} = \arg \min _ {\boldsymbol {x} \in \Psi} \mathcal {L} (\boldsymbol {y}, \boldsymbol {x}),\tag{4.2b}
+$$
+
+其中，$\mathcal{L}: \mathbb{R}^{m} \times \mathbb{R}^{n} \to \mathbb{R}$ 是下层（LL）代价，$\mathcal{U}: \mathbb{R}^{m} \times \mathbb{R}^{n} \to \mathbb{R}$ 是上层（UL）代价，$\pmb{x} \in \Psi$ 和 $\pmb{y} \in \Theta$ 为可行集。
+
+在实践中，变量 $x$ 通常是具有明确物理含义的参数，例如相机位姿；而 $y$ 通常是没有明确物理含义的参数，例如神经网络的权重。下面用两个例子说明。
+
+**例 4.1（具有学习特征的视觉 SLAM）** 设想一个 SLAM 系统使用由 $y$ 参数化的神经网络进行特征提取/匹配，同时利用由 $x$ 参数化的 BA 进行位姿估计，并将特征匹配结果作为输入。在该示例中，上层代价（4.2a）可以是用于优化网络的特征匹配误差，而下层代价 $\mathcal{L}$（4.2b）可以是 BA 的重投影误差。直观地说，相机位姿和路标位置的最优解 $\pmb{x}^{*}$ 在神经网络训练中起监督信号的作用。因此，优化 BLO（4.2）可通过反向传播 BA 重投影误差，进一步降低匹配误差 [1267]。
+
+**例 4.2（PGO）** 设想一个 SLAM 系统使用神经网络进行前端位姿估计，并使用 PGO 作为后端消除里程计漂移。在此示例中，上层和下层代价都可以是位姿图误差。区别在于，上层代价优化由 $y$ 参数化的网络，而下层代价优化由 $x$ 参数化的相机位姿。因此，前端网络可通过从后端 PGO 反向传播位姿残差，利用位姿图优化所获得的全局几何知识 [346]。
+
+BLO 是一个历史悠久且研究充分的问题 [1148, 517, 679]。求解 BLO 通常依赖梯度下降技术。具体而言，上层优化按 $\pmb{y} \leftarrow \pmb{y} + \delta\pmb{y}$ 的形式更新，其中 $\delta\pmb{y}$ 是沿负梯度方向的一步。因此，需要计算目标函数关于上层变量 $\pmb{y}$ 的梯度，可写为
+
+$$
+\nabla_ {\boldsymbol {y}} \mathcal {U} = \frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} ^ {*})}{\partial \boldsymbol {y}} + \frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} ^ {*})}{\partial \boldsymbol {x} ^ {*}} \frac {\partial \boldsymbol {x} ^ {*} (\boldsymbol {y})}{\partial \boldsymbol {y}},\tag{4.3}
+$$
+
+其中，项 $\frac { \partial \pmb { x } ^ { * } ( \pmb { y } ) } { \partial \pmb { y } }$ 涉及间接梯度计算。由于式（4.3）中其他直接梯度项易于获得，求解 BLO（4.2）的难点在于计算 $\frac { \partial \pmb { x } ^ { * } ( \pmb { y } ) } { \partial \pmb { y } }$。为此，人们从显式和隐式两个角度发展出一系列技术，分别涉及穿过动力系统的递归微分与隐式微分理论，通常称为展开微分（unrolled differentiation）和隐式微分（implicit differentiation）。这些算法在 [679, 1148] 中已有总结；这里的算法 1 给出包含两类方法的通用框架。下面分别介绍展开微分和隐式微分。
+
+## 4.2.1 展开微分
+
+展开微分需要穿过下层优化过程执行自动微分（Automatic Differentiation，AutoDif），以求解 BLO 问题。具体地，给定 $t = 0$ 时的初始化 ${ \bf { x } } _ { 0 } =$ $\Phi _ { 0 } ( \pmb { y } )$，展开的下层优化迭代过程为
+
+$$
+\pmb {x} _ {t} = \Phi_ {t} (\pmb {x} _ {t - 1}; \pmb {y}), \quad t = 1, \dots , T,\tag{4.4}
+$$
+
+<div class="mineru-algorithm" style="white-space: pre-wrap; font-family:monospace;">
+算法 1 通过展开微分或隐式微分求解 BLO。
+
+1: 初始化：$y_{0}$，$x_{0}$。
+2: 当未收敛（$\|y_{k+1}-y_{k}\|$ 足够大）时：
+3: 使用通用优化器 O 经 T 步求解（4.2b），获得 $x_{T}$。
+4: 按下列方式高效估计式（4.3）的上层梯度：
+5: 展开微分：通过式（4.7）中的 AutoDiff，计算 $\hat{\nabla}_{y_{k}}U=\frac{\partial U(y_{k},x_{T})}{\partial y_{k}}$。
+6: 隐式微分（算法 2）：计算
+ $\hat{\nabla}_{y_{k}}\mathcal{U}=\frac{\partial\mathcal{U}}{\partial y_{k}}\bigg|_{x_{T}}+\frac{\partial\mathcal{U}}{\partial x^{*}}\frac{\partial x^{*}}{\partial y_{k}}\bigg|_{x_{T}}$，
+其中隐式导数 $\frac{\partial x^{*}}{\partial y_{k}}$ 可通过求解由下层最优性条件导出的方程获得（后续各节将作概述）。
+7:
+8: 使用 $\hat{\nabla}_{y_{k}}U$，通过梯度计算 $y_{k+1}$。
+9: 结束循环
+</div>
+
+其中，$\Phi _ { t }$ 表示第 $t$ 步中基于下层问题的更新方案，$T$ 为迭代次数。一种更新方案是梯度下降：
+
+$$
+\Phi_ {t} (\boldsymbol {x} _ {t - 1}; \boldsymbol {y}) = \boldsymbol {x} _ {t - 1} - \eta_ {t} \cdot \frac {\partial \mathcal {L} (\boldsymbol {x} _ {t - 1} , \boldsymbol {y})}{\partial \boldsymbol {x} _ {t - 1}},\tag{4.5}
+$$
+
+其中，$\eta _ { t }$ 是学习率，项 $\frac { \partial \mathcal { L } ( \pmb { x } _ { t - 1 } , \pmb { y } ) } { \partial \pmb { x } _ { t - 1 } }$ 可通过 AutoDif 计算。<sup>1</sup> 因此，可用 $\mathbfit { \mathbf { x } } _ { T }$ 近似替代 $\mathbf { \boldsymbol { x } } ^ { * }$，进而计算 $\nabla _ { \boldsymbol { y } } \boldsymbol { \mathcal { U } } ( \boldsymbol { y } )$；完整的展开系统可定义为
+
+$$
+\boldsymbol {x} ^ {*} \approx \boldsymbol {x} _ {T} = \Phi (\boldsymbol {y}) = \left(\Phi_ {T} \circ \dots \circ \Phi_ {1} \circ \Phi_ {0}\right) (\boldsymbol {y}),\tag{4.6}
+$$
+
+其中符号 $\circ$ 表示函数复合。因此，只需考虑下列问题，而不必考虑式（4.2）中的双层优化：
+
+$$
+\min _ {\boldsymbol {y} \in \Theta} \mathcal {U} (\boldsymbol {y}, \Phi (\boldsymbol {y})),\tag{4.7}
+$$
+
+该问题需要经由 AutoDif 计算 $\frac { \partial \Phi ( \pmb { y } ) } { \partial \pmb { y } }$，而不是计算式（4.3）。值得注意的是，计算递归梯度有两种途径：一种对应反向模式的反向传播 [857]，另一种对应前向模式 [928]。这里省略 AutoDif 两种途径的细节，读者可参阅用于深度学习的 AutoDif 库（如 PyTorch [850]），以及用于 SLAM 的 PyPose [1145] 和 Theseus [873]。Liu 等人 [679] 也对这些方法作了综述。
+
+## 4.2.2 截断展开微分
+
+反向模式和前向模式是精确的递归梯度计算方法，但完整迭代传播会耗费大量时间。这是因为上层问题对 $\pmb{x}_t$（其中 $t = 0, 1, \cdots, T$）具有复杂的长期依赖；当 $\pmb{y}$ 和 $\pmb{x}$ 都是高维向量时，困难会进一步加剧。为克服这一挑战，研究者提出截断展开微分，以显著更少的计算时间和内存得到高质量的近似梯度。具体地，通过忽略长期依赖，并以部分历史近似式（4.5）的梯度，即仅保存最后 $M$ 次迭代 $(t = T, T - 1, \cdots, T - M)$，可以显著降低时间和空间复杂度。Shaban 等人 [992] 已证明，用更少的反向步计算梯度，能够取得与精确梯度优化相当的性能，同时所需内存和计算量小得多。
+
+在计算和内存约束更严格的情形下，截断展开微分仍常是现代机器人应用中的瓶颈。因此，研究者也尝试进一步简化截断微分：在式（4.4）中仅执行一次迭代，以移除递归结构 [676]，即
+
+$$
+\nabla_ {\boldsymbol {y}} \mathcal {U} = \frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} _ {1} (\boldsymbol {y}))}{\partial \boldsymbol {y}} + \frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} _ {1} (\boldsymbol {y}))}{\partial \boldsymbol {x} _ {1}} \frac {\partial \boldsymbol {x} _ {1} (\boldsymbol {y})}{\partial \boldsymbol {y}},\tag{4.8}
+$$
+
+其中，项 $\frac{\partial \pmb{x}_1(\pmb{y})}{\partial \pmb{y}}$ 是由混合二阶导数给出的雅可比矩阵，可由式（4.5）计算为
+
+$$
+\frac {\partial \boldsymbol {x} _ {1} (\boldsymbol {y})}{\partial \boldsymbol {y}} = - \frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} _ {0} , \boldsymbol {y})}{\partial \boldsymbol {x} _ {0} \partial \boldsymbol {y}}.\tag{4.9}
+$$
+
+由于在某些应用中计算 Hessian 矩阵代价很高，可以采用数值解法：对变量 $x$ 施加微小扰动，并将式（4.8）的第二项整体近似为
+
+$$
+\frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} _ {1} (\boldsymbol {y}))}{\partial \boldsymbol {x} _ {1}} \frac {\partial \boldsymbol {x} _ {1} (\boldsymbol {y})}{\partial \boldsymbol {y}} \approx \frac {\frac {\partial \mathcal {L} (\boldsymbol {x} _ {0} ^ {+} , \boldsymbol {y})}{\partial \boldsymbol {y}} - \frac {\partial \mathcal {L} (\boldsymbol {x} _ {0} ^ {-} , \boldsymbol {y})}{\partial \boldsymbol {y}}}{2 \epsilon},\tag{4.10}
+$$
+
+其中，$\epsilon$ 是一个小标量，$\begin{array} { r } { \pmb { x } _ { 0 } ^ { \pm } = \pmb { x } _ { 0 } \pm \epsilon \frac { \partial \mathcal { U } ( \pmb { y } , \pmb { x } _ { 1 } ( \pmb { y } ) ) } { \partial \pmb { x } _ { 1 } } } \end{array}$ 是微小扰动。该方法避免显式计算雅可比矩阵 $\frac { \partial { \pmb x } _ { 1 } ( { \pmb y } ) } { \partial { \pmb y } }$。尽管如此，若包含非欧氏变量，例如属于 Lie 群的变量，就需关注扰动模型。幸运的是，现代库已支持针对 Hessian-向量积和 Jacobian-向量积的 Lie 群 AutoDif，例如将在第 4.4 节介绍的 PyPose [1145]。
+
+## 4.2.3 隐式微分
+
+直观地说，式（4.3）中的项 $\frac { \partial \pmb { x } ^ { * } ( \pmb { y } ) } { \partial \pmb { y } }$ 依赖于下层代价（4.2b），因此可使用隐式微分推导该梯度的解。
+
+在微积分中，隐式微分是利用链式法则对隐函数求导的方法。对于由方程 $R ( x , y ) = 0$ 定义的隐函数 $y ( x )$，通常无法先显式解出 $y$ 再进行微分；取而代之的是，对 $R ( x , y ) =$ 0 关于 $x$ 作全微分，再解所得线性方程，得到以 $x$ 和 $y$ 表示的导数 $\frac { \mathrm { d } y } { \mathrm { d } x }$。例如，考虑隐函数 $x + y + 5 = 0$，对等式两边关于 $x$ 求导，可得 $\begin{array} { r } { \frac { \mathrm { d } y } { \mathrm { d } x } + \frac { \mathrm { d } x } { \mathrm { d } x } + } \end{array}$ $\begin{array} { r } { \frac { \mathrm { d } } { \mathrm { d } x } ( 5 ) = 0 \Rightarrow \frac { \mathrm { d } y } { \mathrm { d } x } + 1 + 0 = 0 } \end{array}$。解出 $\frac { \mathrm { d } y } { \mathrm { d } x }$，得到 $\textstyle { \frac { \mathrm { d } y } { \mathrm { d } x } } = - 1$。
+
+假定下层代价关于 $\pmb{x}$ 和 $\pmb{y}$ 至少二次可微，则由最优性条件可知，$\pmb{x}^{*}$ 为驻点，从而有 $\frac{\partial \mathcal{L}(\pmb{x}^{*}(\pmb{y}), \pmb{y})}{\partial \pmb{x}^{*}(\pmb{y})} = 0$。将该方程两边关于 $\pmb{y}$ 求导，得到
+
+$$
+\frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {y}} + \frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {x} ^ {*} (\boldsymbol {y})} \cdot \frac {\partial \boldsymbol {x} ^ {*} (\boldsymbol {y})}{\partial \boldsymbol {y}} = 0.\tag{4.11}
+$$
+
+这给出间接梯度 $\frac { \partial \pmb { x } ^ { * } ( \pmb { y } ) } { \partial \pmb { y } }$：
+
+$$
+\frac {\partial \boldsymbol {x} ^ {*} (\boldsymbol {y})}{\partial \boldsymbol {y}} = - \left(\frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {x} ^ {*} (\boldsymbol {y})}\right) ^ {- 1} \frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {y}},\tag{4.12}
+$$
+
+式（4.12）的优点是，以求逆一个 Hessian 矩阵为代价，将变量 $y$ 和 $x$ 之间的间接梯度转化为 $\mathcal { L }$ 的直接梯度。其缺点是 Hessian 矩阵通常过大，难以计算；因此，常见做法是利用高效的 Hessian-向量积求解一个线性系统。
+
+**例 4.3（存储和求逆 Hessian 矩阵的代价）** 假定上层和下层代价均涉及一个仅有 100 万 $( 1 0 ^ { 6 } )$ 个参数（32 位浮点数）的网络，则每个网络只需 $1 0 ^ { 6 } \times 4 \mathrm { B y t e } = 4 \mathrm { M } B$ 的存储空间；而其 Hessian 矩阵需要 $( 1 0 ^ { 6 } ) ^ { 2 } \times 4 \mathrm { B y t e } = 4 \mathrm { T } B$ 的存储空间。这表明，低功耗计算机的内存甚至无法显式存储 Hessian 矩阵，因此直接计算其逆不可行。
+
+回顾目标是计算式（4.3）的梯度，将式（4.12）代入式（4.3）可得：
+
+$$
+\begin{array}{l} \nabla_ {\boldsymbol {y}} \mathcal {U} = \frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} ^ {*})}{\partial \boldsymbol {y}} - \underbrace {\frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} ^ {*})}{\partial \boldsymbol {x} ^ {*}}} _ {\boldsymbol {v} ^ {\top}} \underbrace {\left(\frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {x} ^ {*} (\boldsymbol {y})}\right) ^ {- 1}} _ {(\boldsymbol {H} ^ {\top}) ^ {- 1}} \frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {y}} \\ = \frac {\partial \mathcal {U} (\boldsymbol {y} , \boldsymbol {x} ^ {*})}{\partial \boldsymbol {y}} - \boldsymbol {q} ^ {\top} \cdot \frac {\partial^ {2} \mathcal {L} (\boldsymbol {x} ^ {*} (\boldsymbol {y}) , \boldsymbol {y})}{\partial \boldsymbol {x} ^ {*} (\boldsymbol {y}) \partial \boldsymbol {y}} \end{array} .\tag{4.13}
+$$
+
+随后可通过优化下式，求解线性系统 $\pmb{H}\pmb{q} = \pmb{v}$ 得到 $\pmb{q}^{*}$：
+
+$$
+\boldsymbol {q} ^ {*} = \underset {\boldsymbol {q}} {\arg\min}\ Q (\boldsymbol {q}) = \underset {\boldsymbol {q}} {\arg\min}\ \frac {1}{2} \boldsymbol {q} ^ {\top} \boldsymbol {H} \boldsymbol {q} - \boldsymbol {q} ^ {\top} \boldsymbol {v},\tag{4.14}
+$$
+
+可使用简单的梯度下降或共轭梯度法 [459] 等高效线性求解器。对于梯度下降，需要计算 $Q$ 的梯度 $\frac{\partial Q(\pmb{q})}{\partial \pmb{q}} = \pmb{H}\pmb{q} - \pmb{v}$，其中 $\pmb{H}\pmb{q}$ 可通过高效 Hessian-向量积计算；即 Hessian-向量积是梯度-向量积的梯度：
+
+$$
+\pmb {H} \pmb {q} = \frac {\partial^ {2} \mathcal {L}}{\partial \pmb {x} \partial \pmb {x}} \cdot \pmb {q} = \frac {\partial (\frac {\partial \mathcal {L}}{\partial \pmb {x}} \cdot \pmb {q})}{\partial \pmb {x}},\tag{4.15}
+$$
+
+其中，$\textstyle { \frac { \partial { \mathcal { L } } } { \partial { \boldsymbol { x } } } } \cdot { \boldsymbol { q } }$ 是一个标量。这意味着无需显式计算或存储 Hessian 矩阵 $H$。算法 2 总结了通过线性系统计算隐式微分的过程；使用共轭梯度法的算法与之类似。
+
+<div class="mineru-algorithm" style="white-space: pre-wrap; font-family:monospace;">
+算法 2 通过线性系统计算隐式微分。
+
+1: 输入：当前上层变量 $y$ 和最优下层变量 $x^{*}$。
+2: 初始化：$k = 1$，学习率 $\eta$。
+3: 当未收敛（$\|q_{k}-q_{k-1}\|$ 足够大）时：
+4: 执行梯度下降：
+ $q_{k}=q_{k-1}-\eta(Hq_{k-1}-v)$，式（4.16），
+其中 $Hq_{k-1}$ 通过高效 Hessian-向量积计算。
+5: 结束循环
+6: 令 $q=q_{k}$。
+7: 按式（4.3）计算 $\nabla_{y}U$：
+ $\nabla_{y}U=\frac{\partial U(y,x^{*})}{\partial y}-\underbrace{\left(\frac{\partial^{2}L(x^{*}(y),y)}{\partial y\partial x^{*}(y)}\cdot q\right)^{\mathsf{T}}} _{(H_{yx}\cdot q)^{\mathsf{T}}}$，式（4.17），
+其中 $H_{yx}\cdot q$ 也可通过 Hessian-向量积高效计算。
+</div>
+
+**近似。** 隐式微分实现复杂，但有一种近似方法是忽略隐式成分，仅使用直接部分 $\hat{\nabla}_{\pmb{y}} \mathcal{U} \approx \left.\frac{\partial \mathcal{U}}{\partial \pmb{y}}\right|_{\pmb{x}_T}$。这等价于在上层问题中将下层优化得到的解 $\pmb{x}_T$ 视为常数。该近似效率更高，但会引入误差项
+
+$$
+\epsilon \sim \left| \frac {\partial U}{\partial \pmb {x} ^ {*}} \frac {\partial \pmb {x} ^ {*}}{\partial \pmb {y}} \right|.\tag{4.18}
+$$
+
+不过，当隐式梯度包含较小二阶导数的乘积时，这一近似仍然有用，具体取决于所处理的 NLS 问题。
+
+## 4.3 流形上的微分
+
+典型 SLAM 系统的状态必然在流形上演化，因此，流形上的优化对于求解 SLAM 后端问题至关重要。下面推导对属于 Lie 群的变量求导时所需的雅可比矩阵，这是流形微分的关键步骤。
+
+## 4.3.1 Lie 群导数
+
+第 2 章已经介绍 Lie 群、Lie 代数及其基本运算（例如指数映射和对数映射）的基本概念。本节将简要回顾这些概念，但主要关注其导数的定义，因为这是求解可微优化问题所必需的。
+
+考虑一个 Lie 群的流形。该光滑流形上的每一点 $\chi$ 都有唯一的切空间，记为 $T_{\chi}\mathcal{M}$，微积分的基本原理在其中成立。Lie 代数 $\mathfrak{m}$ 是一个向量空间，并可在点 $\chi$ 的邻域局部定义为 $\mathfrak{m} = T_{\chi}\mathcal{M}$。指数映射 $\exp: \mathfrak{m} \to \mathcal{M}$ 将 Lie 代数中的元素映射至 Lie 群；对数映射 $\log: \mathcal{M} \to \mathfrak{m}$ 则是其逆，建立双向关系：
+
+$$
+\boldsymbol {\chi} = \exp (\boldsymbol {\tau} ^ {\wedge}) \Leftrightarrow \boldsymbol {\tau} ^ {\wedge} = \log (\boldsymbol {\chi}),\tag{4.19}
+$$
+
+其中 hat 算子 $\wedge$ 是线性可逆映射，且 $\tau ^ { \wedge } \in \mathfrak { m }$。若将 Lie 代数中的坐标表示为 $\mathbb { R } ^ { n }$ 中的向量 $\tau$，便可定义向量 $\tau$ 与 Lie 群 $\chi$ 之间的映射：
+
+$$
+\boldsymbol {\chi} = \operatorname{Exp} (\boldsymbol {\tau}) \Leftrightarrow \boldsymbol {\tau} = \operatorname{Log} (\boldsymbol {\chi}),\tag{4.20}
+$$
+
+这里重新定义指数映射和对数映射，使其分别直接以向量为输入和输出。
+
+要计算 Lie 群上的导数，首先必须理解两个流形元素（例如 $x _ { 1 }$ 和 $x _ { 2 }$）之间的相对变化。通过先定义 $\oplus$ 和 $\ominus$ 算子可对这些变化进行量化；它们各组合一个指数/对数映射和一个复合运算。由于复合通常不可交换，这些算子依操作数顺序分为右形式和左形式。右形式算子为：
+
+$$
+\begin{array}{l l} \text {right-} \oplus : & \boldsymbol {\chi} _ {2} = \boldsymbol {\chi} _ {1} \oplus \boldsymbol {\tau} \triangleq \boldsymbol {\chi} _ {1} \circ \operatorname{Exp} \left(\boldsymbol {\tau}\right), \\ \text {right-} \ominus : & \boldsymbol {\tau} = \boldsymbol {\chi} _ {2} \ominus \boldsymbol {\chi} _ {1} \triangleq \operatorname{Log} \left(\boldsymbol {\chi} _ {1} ^ {- 1} \circ \boldsymbol {\chi} _ {2}\right). \end{array}\tag{4.21}
+$$
+
+式（4.21）中 $\tau$ 位于右侧，表示它在 $x _ { 1 }$ 处的局部坐标系中表示。相反，式（4.22）的左形式算子反映全局坐标系视角：
+
+$$
+\begin{array}{l l} \text {left-} \oplus : & \boldsymbol {\chi} _ {2} = \boldsymbol {\varepsilon} \oplus \boldsymbol {\chi} _ {1} \triangleq \operatorname{Exp} \left(\boldsymbol {\varepsilon}\right) \circ \boldsymbol {\chi} _ {1}, \\ \text {left-} \ominus : & \boldsymbol {\varepsilon} = \boldsymbol {\chi} _ {2} \ominus \boldsymbol {\chi} _ {1} \triangleq \operatorname{Log} \left(\boldsymbol {\chi} _ {2} \circ \boldsymbol {\chi} _ {1} ^ {- 1}\right), \end{array}\tag{4.22}
+$$
+
+其中，$\varepsilon$ 在全局坐标系中表示。$\tau$ 和 $\varepsilon$ 都可看作流形元素的增量扰动；借助相应的复合算子 $\oplus$ 和 $\ominus$，这些变化以切空间中的向量表示。
+
+有了右形式的 $\oplus$ 和 $\ominus$ 算子后，使用雅可比矩阵 $J$ 描述流形上的扰动。雅可比矩阵刻画了切空间 $\mathfrak m$ 中无穷小扰动 $\tau$ 的本质：
+
+$$
+\begin{array}{l} \frac {\partial f (\boldsymbol {\chi})}{\partial \boldsymbol {\chi}} \triangleq \lim _ {\tau \to 0} \frac {f (\boldsymbol {\chi} \oplus \boldsymbol {\tau}) \ominus f (\boldsymbol {\chi})}{\boldsymbol {\tau}} \\ = \lim _ {\tau \to 0} \frac {f (\boldsymbol {\chi} \circ \operatorname{Exp} (\boldsymbol {\tau})) \ominus f (\boldsymbol {\chi})}{\boldsymbol {\tau}} \\ = \lim _ {\boldsymbol {\tau} \to 0} \frac {\operatorname{Log} \left(f (\boldsymbol {\chi}) ^ {- 1} \circ f (\boldsymbol {\chi} \circ \operatorname{Exp} (\boldsymbol {\tau}))\right)}{\boldsymbol {\tau}}. \end{array}\tag{4.23}
+$$
+
+令 $g(\pmb{\tau}) = \operatorname{Log}\left(f(\pmb{\chi})^{-1} \circ f(\pmb{\chi} \circ \operatorname{Exp}(\pmb{\tau}))\right)$，则右雅可比 $J_R$ 可表示为 $g(\pmb{\tau})$ 在 $\pmb{\tau} = 0$ 处的导数：
+
+$$
+\frac {\partial f (\boldsymbol {\chi})}{\partial \boldsymbol {\chi}} = \boldsymbol {J} _ {R} = \left. \frac {\partial g (\boldsymbol {\tau})}{\partial \boldsymbol {\tau}} \right| _ {\boldsymbol {\tau} = 0}.\tag{4.24}
+$$
+
+这样，流形中 $f(\chi)$ 关于 $\chi$ 的导数由雅可比矩阵 $J_R \in \mathbb{R}^{m \times n}$ 表示，其中 $m$ 和 $n$ 分别是流形 $\mathcal{M}$ 和 $\mathcal{N}$ 的维数。右雅可比矩阵执行从切空间 $\mathfrak{m}$ 到切空间 $\mathfrak{n} = T_{f(\chi)}\mathcal{N}$ 的线性映射。
+
+类似地，考虑施加于 Lie 群元素 $\chi$ 的无穷小扰动 $\varepsilon \in T_{\chi}\mathcal{M}$，可利用左形式的加、减算子定义左雅可比 $J_L$：
+
+$$
+\begin{array}{r l} \frac {\partial f (\boldsymbol {\chi})}{\partial \boldsymbol {\chi}} & \triangleq \lim _ {\varepsilon \to 0} \frac {f (\boldsymbol {\varepsilon} \oplus \boldsymbol {\chi}) \ominus f (\boldsymbol {\chi})}{\varepsilon} \\ & = \lim _ {\varepsilon \to 0} \frac {f (\mathrm{Exp} (\boldsymbol {\varepsilon}) \circ \boldsymbol {\chi}) \ominus f (\boldsymbol {\chi})}{\varepsilon} \\ & = \lim _ {\varepsilon \to 0} \frac {\mathrm{Log} \left(f (\mathrm{Exp} (\boldsymbol {\varepsilon}) \circ \boldsymbol {\chi}) \circ f (\boldsymbol {\chi}) ^ {- 1}\right)}{\varepsilon} \\ & = \frac {\partial \mathrm{Log} \left(f (\mathrm{Exp} (\boldsymbol {\varepsilon}) \circ \boldsymbol {\chi}) \circ f (\boldsymbol {\chi}) ^ {- 1}\right)}{\partial \boldsymbol {\varepsilon}} \bigg | _ {\boldsymbol {\varepsilon} = 0}. \end{array}\tag{4.25}
+$$
+
+所得左雅可比 $J_L \in \mathbb{R}^{n \times m}$ 同样是一个线性映射，但它在全局切空间中从 $T_{\chi}\mathcal{M}$ 映射至 $T_{f(\chi)}\mathcal{N}$。
+
+为考察点 $x _ { 1 }$ 周围的局部扰动，将 $\tau$ 取作 $\pmb { \tau } = \pmb { \chi } \ominus \pmb { \chi } _ { 1 }$，其中 $x$ 是 $x _ { 1 }$ 的扰动版本。定义在切空间上的协方差矩阵 $\Sigma _ { x }$ 由期望算子 $\mathbb { E }$ 导出，从而表征不确定性及其传播：
+
+$$
+\boldsymbol {\Sigma} _ {\boldsymbol {\chi}} \triangleq \mathbb {E} [ \boldsymbol {\tau} \boldsymbol {\tau} ^ {\top} ] = \mathbb {E} [ (\boldsymbol {\chi} \ominus \boldsymbol {\chi} _ {1}) (\boldsymbol {\chi} \ominus \boldsymbol {\chi} _ {1}) ^ {\top} ].\tag{4.26}
+$$
+
+这些协方差矩阵可用于在流形上建立高斯分布，即 $\pmb{\chi} \sim \mathcal{N}(\pmb{\chi}_1, \pmb{\Sigma}_{\pmb{\chi}})$。需要注意，协方差矩阵 $\Sigma_{\chi}$ 定义在切空间 $T_{\chi_1}\mathcal{M}$ 上，因此流形上的不确定性可以由向量表示，并以协方差矩阵形式传播。
+
+**例 4.4（视觉惯性旋转估计）** 考虑一个配备惯性测量单元（IMU）和相机的机器人。给定两个传感器的带噪观测 $R _ { \mathrm { I M U } }$ 和 $R _ { \mathrm { { C a m } } }$，可通过最小化测量之间的差异估计机器人的朝向；这可表述为流形 SO(3) 上的非线性最小二乘问题：
+
+$$
+\hat {\boldsymbol {R}} = \arg \min _ {\boldsymbol {R} \in \mathrm{SO(3)}} f (\boldsymbol {R}, \boldsymbol {R} _ {\mathrm{IMU}}, \boldsymbol {R} _ {\mathrm{Cam}}),\tag{4.27}
+$$
+
+其中，$f ( \cdot )$ 是量化估计朝向 $R$ 与传感器测量 $R _ { \mathrm { I M U } }$ 和 $R _ { \mathrm { { C a m } } }$ 之间差异的代价函数。有了雅可比矩阵后，便可以有效处理流形 $\mathrm { S O ( 3 ) }$ 上用于位姿估计的优化。代价函数 $f ( \cdot )$ 可写为：
+
+$$
+f (\boldsymbol {R}) = \left\| \operatorname{Log} \left(\boldsymbol {R} _ {\mathrm{IMU}} ^ {- 1} \boldsymbol {R}\right) \right\| ^ {2} + \left\| \operatorname{Log} \left(\boldsymbol {R} _ {\mathrm{Cam}} ^ {- 1} \boldsymbol {R}\right) \right\| ^ {2}.\tag{4.28}
+$$
+
+要最小化 $f ( R )$，需要计算其关于流形 $\mathrm { S O ( 3 ) }$ 上 $R$ 的梯度。该梯度可由右雅可比 $J _ { R }$ 推导为：
+
+$$
+\begin{array}{c} \nabla f (\boldsymbol {R}) = 2 \left(\frac {\partial \mathrm{Log} \left(\boldsymbol {R} _ {\mathrm{IMU}} ^ {- 1} \boldsymbol {R}\right)}{\partial \boldsymbol {R}}\right) ^ {\top} \mathrm{Log} \left(\boldsymbol {R} _ {\mathrm{IMU}} ^ {- 1} \boldsymbol {R}\right) \\ + 2 \left(\frac {\partial \mathrm{Log} \left(\boldsymbol {R} _ {\mathrm{Cam}} ^ {- 1} \boldsymbol {R}\right)}{\partial \boldsymbol {R}}\right) ^ {\top} \mathrm{Log} \left(\boldsymbol {R} _ {\mathrm{Cam}} ^ {- 1} \boldsymbol {R}\right). \end{array}\tag{4.29}
+$$
+
+梯度 $\nabla f ( R )$ 可与梯度下降等优化算法结合使用：沿切空间移动并重新投影回流形，以迭代更新位姿 $R$：
+
+$$
+\boldsymbol {R} _ {k + 1} = \boldsymbol {R} _ {k} \mathrm{Exp} \left(- \alpha \nabla f (\boldsymbol {R})\right),\tag{4.30}
+$$
+
+其中 $\alpha$ 为步长。该迭代过程持续到代价函数 $f ( R )$ 收敛至极小值，从而提供利用两个传感器测量的位姿估计 $\hat { R }$。
+
+## 4.3.2 流形上的微分运算
+
+对于典型流形运算，可以推导与求逆、复合和群作用相关的雅可比矩阵闭式表达式。这些表达式能够通过链式法则计算流形上的函数导数，从而支持 SLAM 中完整的优化过程：
+
+$$
+\frac {\partial \mathcal {Z}}{\partial \boldsymbol {\chi}} = \frac {\partial \mathcal {Z}}{\partial \boldsymbol {\mathcal {Y}}} \frac {\partial \boldsymbol {\mathcal {Y}}}{\partial \boldsymbol {\chi}},\tag{4.31}
+$$
+
+其中，$\mathcal{Z} = g(\mathcal{Y})$，且 $\mathcal{Y} = f(\boldsymbol{\chi})$。
+
+求逆的雅可比可通过将函数 $f ( \chi ) = \chi ^ { - 1 }$ 代入式（4.23）的右雅可比 $\scriptstyle J _ { R }$ 推导，得到：
+
+$$
+\begin{array}{l} \frac {\partial \boldsymbol {\chi} ^ {- 1}}{\partial \boldsymbol {\chi}} \triangleq \lim _ {\boldsymbol {\tau} \to 0} \frac {\operatorname{Log} \left((\boldsymbol {\chi} ^ {- 1}) ^ {- 1} (\boldsymbol {\chi} \operatorname{Exp} (\boldsymbol {\tau})) ^ {- 1}\right)}{\boldsymbol {\tau}} \\ = \lim _ {\boldsymbol {\tau} \to 0} \frac {\operatorname{Log} \left(\boldsymbol {\chi} \operatorname{Exp} (\boldsymbol {\tau}) ^ {- 1} \boldsymbol {\chi} ^ {- 1}\right)}{\boldsymbol {\tau}} \\ = \lim _ {\boldsymbol {\tau} \to 0} \frac {(\boldsymbol {\chi} (- \boldsymbol {\tau}) ^ {\wedge} \boldsymbol {\chi} ^ {- 1}) ^ {\vee}}{\boldsymbol {\tau}}. \end{array}\tag{4.32}
+$$
+
+复合的雅可比可通过将函数 $f ( \chi ) = \chi \circ \chi _ { 1 }$ 代入式（4.23）推导。复合算子 $x \circ x _ { 1 }$ 关于 $x$ 的导数为：
+
+$$
+\begin{array}{l} \frac {\partial (\boldsymbol {\chi} \circ \boldsymbol {\chi} _ {1})}{\partial \boldsymbol {\chi}} \triangleq \lim _ {\tau \to 0} \frac {\operatorname{Log} \left((\boldsymbol {\chi} \boldsymbol {\chi} _ {1}) ^ {- 1} (\boldsymbol {\chi} \operatorname{Exp} (\tau) \boldsymbol {\chi} _ {1})\right)}{\tau} \\ = \lim _ {\tau \to 0} \frac {\operatorname{Log} \left(\boldsymbol {\chi} _ {1} ^ {- 1} \operatorname{Exp} (\tau) \boldsymbol {\chi} _ {1}\right)}{\tau} \\ = \lim _ {\tau \to 0} \frac {(\boldsymbol {\chi} _ {1} ^ {- 1} \boldsymbol {\tau} ^ {\wedge} \boldsymbol {\chi} _ {1}) ^ {\vee}}{\tau}. \end{array}\tag{4.33}
+$$
+
+复合算子 $x \circ x _ { 1 }$ 关于 $x _ { 1 }$ 的导数为：
+
+$$
+\begin{array}{l} \frac {\partial (\boldsymbol {\chi} \circ \boldsymbol {\chi} _ {1})}{\partial \boldsymbol {\chi} _ {1}} \triangleq \lim _ {\tau \to 0} \frac {\operatorname{Log} \left((\boldsymbol {\chi} \boldsymbol {\chi} _ {1}) ^ {- 1} (\boldsymbol {\chi} \boldsymbol {\chi} _ {1} \operatorname{Exp} (\boldsymbol {\tau}))\right)}{\boldsymbol {\tau}} \\ = \lim _ {\tau \to 0} \frac {\operatorname{Log} \left(\operatorname{Exp} (\boldsymbol {\tau})\right)}{\boldsymbol {\tau}} \\ = \boldsymbol {I}. \end{array}\tag{4.34}
+$$
+
+流形的雅可比可由 $\chi$ 的右雅可比表征，该雅可比从 $\tau \in \mathbb { R } ^ { m }$ 的指数映射导出，表示为：
+
+$$
+\boldsymbol {J} _ {r} (\boldsymbol {\tau}) \triangleq \frac {\partial \operatorname{Exp} (\boldsymbol {\tau})}{\partial \boldsymbol {\tau}}.\tag{4.35}
+$$
+
+右雅可比将 $\tau$ 的微小变化传递为 $\mathrm{Exp}(\tau)$ 处局部切空间中的变化。类似地，$x$ 的左雅可比将 $\tau$ 的变化映射为流形全局切空间中的变化，表示为：
+
+$$
+\boldsymbol {J} _ {l} (\boldsymbol {\tau}) \triangleq \operatorname{Ad}_{\operatorname{Exp}(\boldsymbol{\tau})} \boldsymbol {J} _ {r} (\boldsymbol {\tau}).\tag{4.36}
+$$
+
+群作用的雅可比取决于具体的群作用集合 $v \in \mathcal V$。群作用的雅可比定义为：
+
+$$
+\begin{array}{l} J _ {\chi} ^ {\chi \cdot v} \triangleq \frac {\partial(\chi \cdot v)}{\partial \chi}, \\ J _ {v} ^ {\chi \cdot v} \triangleq \frac {\partial(\chi \cdot v)}{\partial v}, \end{array}\tag{4.37}
+$$
+
+其中，$\chi \in \mathcal { M }$ 且 $v \in \mathcal V$。
+
+**例 4.5（机械臂）** 考虑一个具有两个关节 $\scriptstyle { R _ { 1 } }$ 和 $R _ { 2 }$ 的机械臂，每个关节均由 SO(3) 中的一个元素表示。机器人末端执行器的最终朝向由关节旋转的复合决定：
+
+$$
+\pmb {R} = \pmb {R} _ {1} \circ \pmb {R} _ {2}.\tag{4.38}
+$$
+
+为了评估 $\pmb { R } _ { 1 }$ 和 $R _ { 2 }$ 中的微小扰动 $\tau$ 对末端执行器朝向 $R$ 的影响，可使用复合的雅可比对其量化：
+
+$$
+\begin{array}{l} \frac {\partial (\boldsymbol {R} _ {1} \circ \boldsymbol {R} _ {2})}{\partial \boldsymbol {R} _ {1}} = \lim _ {\tau \to 0} \frac {(\boldsymbol {R} _ {2} ^ {- 1} \boldsymbol {\tau} ^ {\wedge} \boldsymbol {R} _ {2}) ^ {\vee}}{\tau}, \\ \frac {\partial (\boldsymbol {R} _ {1} \circ \boldsymbol {R} _ {2})}{\partial \boldsymbol {R} _ {2}} = \boldsymbol {I}. \end{array}\tag{4.39}
+$$
+
+该示例表明，对第一个关节 $\pmb { R } _ { 1 }$ 的调整，会经由受第二个关节 $R _ { 2 }$ 当前状态影响的变换作用于最终朝向 $R$。而对第二个关节 $R _ { 2 }$ 的改变会直接影响 $R$，不受第一个关节 $R _ { 1 }$ 的影响。
+
+## 4.4 自动微分的数值挑战与现代库
+
+AutoDif 是在包括流形微分在内的各种优化情境中准确、高效计算导数的核心技术。由于流形结构固有的复杂几何性质，流形上的微分面临独特挑战，这些性质可能影响 AutoDif 的性能和适用性。在可微优化中，当 AutoDif 与流形的曲空间相互作用时，这些挑战尤为突出，可能引入数值不稳定性和不准确性。
+
+本节给出在基于流形的优化任务中使用自动微分时出现数值问题的例子，尤其关注在流形约束下保持数值稳定性和精度的复杂性，例如约束优化以及由流形上微分方程定义的系统。这里以 PyPose 库 [1145] 为例；它为 Lie 群和 Lie 代数定义了一种通用数据结构 LieTensor。具体而言，将说明一些数值挑战，以及 PyPose 如何处理这些挑战。
+
+**例 4.6（指数映射和四元数）** 指数映射是 Lie 群理论中的基本概念，在以四元数表示的 Lie 代数和 Lie 群之间转换时尤为关键。该映射可将 $\mathbb { R } ^ { 3 }$ 代数结构中的角速度转换为单位四元数群 $\mathbb { S } ^ { 3 }$ 中的旋转朝向。从解析角度看，四元数的指数映射由 Rodrigues 旋转公式导出；该公式将 $\mathbb { R } ^ { 3 }$ 中的向量关联到相应旋转。给定 $\mathbb { R } ^ { 3 }$ 中向量 $x$，它表示由旋转角缩放的旋转轴，则旋转的四元数表示为：
+
+$$
+\operatorname{Exp} (\boldsymbol {\nu}) = \left[ \sin \left(\frac {\| \boldsymbol {\nu} \|}{2}\right) \frac {\boldsymbol {\nu} ^ {\top}}{\| \boldsymbol {\nu} \|}, \cos \left(\frac {\| \boldsymbol {\nu} \|}{2}\right) \right] ^ {\top}\tag{4.40}
+$$
+
+其中，$\| \nu \|$ 表示 $\nu$ 的模，对应旋转角；$\frac { \nu } { \left\| \nu \right\| }$ 是沿 $\pmb { \nu }$ 方向的单位向量。
+
+实现可微 LieTensor 的一个挑战是，通常必须为 Exp 和 Log 映射计算式（4.40）中的 $\frac{\sin(\|\nu\|/2)}{\|\nu\|}$ 等数值上存在问题的项 [1083]。当角度非常小时，直接计算正弦和余弦函数会由于计算机中浮点数的有限表示而导致精度问题。为处理这些问题并保持数值稳定性，PyPose 采用 Taylor 展开，以避免除以零。
+
+$$
+\operatorname{Exp} (\boldsymbol {\nu}) = \left\{ \begin{array}{l l} \left[ \boldsymbol {\nu} ^ {T} \gamma_ {e}, \cos (\frac {\| \boldsymbol {\nu} \|}{2}) \right] ^ {T} & \text {if } \| \boldsymbol{\nu}\| > \mathrm{eps}, \\ \left[ \boldsymbol {\nu} ^ {T} \gamma_ {o}, 1 - \frac {\| \boldsymbol {\nu} \| ^ {2}}{8} + \frac {\| \boldsymbol {\nu} \| ^ {4}}{384} \right] ^ {T} & \text {otherwise.} \end{array} \right.\tag{4.41}
+$$
+
+当 $\| \nu \|$ 显著时，$\gamma_e = \frac{\sin(\|\pmb{\nu}\|/2)}{\|\pmb{\nu}\|}$；当 $\lVert \nu \rVert$ 很小时，$\gamma_o = \frac{1}{2} - \frac{\|\pmb{\nu}\|^2}{48} + \frac{\|\pmb{\nu}\|^4}{3840}$，从而可在整个旋转幅值范围内确保精确计算。这里，$\mathrm{eps}$ 是使 $1 + \mathrm{eps} \neq 1$ 成立的最小机器数。这一从解析到数值的过程说明：在需要高保真旋转表示的应用中，准确稳定地计算指数映射十分重要。
+
+LieTensor 与现有库相比存在若干区别：（1）PyPose 支持任意阶梯度的 AutoDif，且兼容 CPU、GPU、TPU 和 Apple silicon GPU 等主流设备；而 LieTorch [1083] 等库实现定制 CUDA 核函数，只支持一阶梯度。（2）LieTensor 支持通过 vmap 算子并行计算梯度，因此能更快地计算雅可比矩阵。（3）LieTorch、JaxLie [1244] 和 Theseus 等库只支持 Lie 群，而 PyPose 同时支持 Lie 群和 Lie 代数。因此，可直接从 LieTensor 实例调用 Exp 和 Log 映射，更加灵活易用；两类变量的梯度也可自动计算和反向传播。读者可在 [1144] 找到受支持 LieTensor 运算的列表，在 [1147] 找到 PyPose 教程。有关 LieTensor 及其自动微分的用法，参见 https://github.com/pypose/slambook-snippets/blob/main/lietensor.ipynb。
+
+## 4.4.1 可微优化的实现示例
+
+为使用双层优化实现端到端学习，需要集成除神经方法所需的 SGD [930] 和 Adam [579] 等基于梯度的方法之外的通用优化器，因为 SLAM 中的许多问题还需要约束优化或 $2 ^ { \mathrm { n d } }$ 阶优化 [51] 等其他优化算法。此外，实际问题中存在离群值，因此需要像第 3 章所述那样使损失函数鲁棒化。下面考虑第 3.3 节介绍的一种用于 SLAM 的 IRLS 方法，并说明 PyPose 面向优化的接口背后的思想，包括求解器（solver）、核函数（kernel）、校正器（corrector）和策略（strategy），以使用 $2 ^ { \mathrm { n d } }$ 阶 Levenberg-Marquardt（LM）优化器。
+
+首先考虑一个加权最小二乘问题：
+
+$$
+\min _ {\boldsymbol {x}} \sum_ {i} \left(\boldsymbol {h} _ {i} (\boldsymbol {x} _ {i}) - \boldsymbol {z} _ {i}\right) ^ {T} \boldsymbol {\Sigma} _ {i} \left(\boldsymbol {h} _ {i} (\boldsymbol {x} _ {i}) - \boldsymbol {z} _ {i}\right),\tag{4.42}
+$$
+
+其中，$h(\cdot)$ 是回归模型（模块），$\pmb{x} \in \mathbb{R}^{n}$ 是待优化参数，$\pmb{h}_i$ 表示第 $i$ 个输入样本的预测，$\pmb{\Sigma}_i \in \mathbb{R}^{d \times d}$ 是信息矩阵。LM 算法通过迭代更新估计 $\pmb{x}_t$ 得到式（4.42）的解，即 $\pmb{x}_t \gets \pmb{x}_{t-1} + \pmb{\delta}_t$，其中更新步 $\pmb{\delta}_t$ 计算为：
+
+$$
+\sum_ {i} \left(\boldsymbol {\Lambda} _ {i} + \lambda \cdot \operatorname{diag} \left(\boldsymbol {\Lambda} _ {i}\right)\right) \boldsymbol {\delta} _ {t} = - \sum_ {i} \boldsymbol {J} _ {i} ^ {T} \boldsymbol {\Sigma} _ {i} \boldsymbol {r} _ {i},\tag{4.43}
+$$
+
+其中，$\pmb{r}_i = \pmb{h}_i(\pmb{x}_i) - \pmb{z}_i$ 是第 $i$ 个残差；$\pmb{J}_i$ 是在 $\pmb{x}_{t-1}$ 处计算的 $h$ 的雅可比矩阵；$\pmb{\Lambda}_i = \pmb{J}_i^{T}\pmb{\Sigma}_i\pmb{J}_i$ 是近似 Hessian 矩阵；$\lambda$ 是阻尼因子。为得到步长 $\pmb{\delta}_t$，需要一个线性求解器：
+
+$$
+\mathbf {A} \cdot \boldsymbol {\delta} _ {t} = \boldsymbol {\beta},\tag{4.44}
+$$
+
+其中，$\pmb{A} = \sum_i \bigl(\pmb{\Lambda}_i + \lambda \operatorname{diag}(\pmb{\Lambda}_i)\bigr)$，$\pmb{\beta} = -\sum_i \pmb{J}_i^T\pmb{\Sigma}_i\pmb{r}_i$。实践中，方阵 $\pmb{A}$ 通常是正定的，因此可使用 Cholesky 等标准线性求解器。若雅可比 $\pmb{J}_i$ 很大且稀疏，也可使用稀疏 Cholesky [161] 或预条件共轭梯度（PCG）[459] 等稀疏求解器。
+
+实践中，常在式（4.42）中引入鲁棒核函数 $\rho : \mathbb { R } \mapsto \mathbb { R }$，以减小离群值的影响：
+
+$$
+\min _ {\boldsymbol {x}} \sum_ {i} \rho \left(\boldsymbol {r} _ {i} ^ {T} \boldsymbol {\Sigma} _ {i} \boldsymbol {r} _ {i}\right),\tag{4.45}
+$$
+
+其中，$\rho$ 用于降低具有较大残差 $\pmb{r}_i$ 的测量的权重。此时需要调整式（4.43）以考虑鲁棒核的存在。一种常用方法是采用 IRLS 方法 Triggs 校正 [1107]，Ceres [15] 库也采用该方法。然而，它需要核函数 $\rho$ 的二阶导数，而该导数始终为负，可能导致包括 LM 在内的二阶优化器不稳定 [1107]。作为替代方案，PyPose 提出 IRLS 方法 FastTriggs；它仅涉及一阶导数，比 Triggs 更快也更稳定：
+
+$$
+\pmb {r} _ {i} ^ {\rho} = \sqrt {\rho^ {\prime} (c _ {i})} \pmb {r} _ {i}, \quad \pmb {J} _ {i} ^ {\rho} = \sqrt {\rho^ {\prime} (c _ {i})} \pmb {J} _ {i},\tag{4.46}
+$$
+
+其中，$c _ { i } = \boldsymbol { r } _ { i } ^ { T } \Sigma _ { i } \boldsymbol { r } _ { i }$；$\boldsymbol { r } _ { i } ^ { \rho }$ 和 $J _ { i } ^ { \rho }$ 分别是引入核函数后校正的模型残差和雅可比。FastTriggs 的更多细节及其证明参见 [1143]；IRLS 已在第 3.3 节介绍。
+
+若初始猜测距离最优解过远，简单的 LM 优化器可能无法收敛到全局最优解。因此，常需采用自适应阻尼、Dogleg 和信赖域方法 [697] 等策略约束每一步，避免步长“过大”。要采用这些策略，只需将策略实例（例如 TrustRegion）传给优化器。总之，PyPose 只需在构造函数中传入优化器参数，即可方便地扩展上述算法；这些参数包括 solver、strategy、kernel 和 corrector。可用算法列表和示例见 [1146]。二阶优化的用法参见 https://github.com/pypose/slambook-snippets/blob/main/optimization.ipynb。
+
+## 4.4.2 相关开源库
+
+与可微优化相关的开源库可分为三类：（1）线性代数库；（2）机器学习库；（3）专用优化库。
+
+**线性代数库** 是机器学习和机器人研究的基础。Python 线性代数库 NumPy [823] 提供全面的向量和矩阵操作，并得益于底层经过良好优化的 C 代码而具有较高运行速度。高性能 C++ 线性代数库 Eigen [412] 已被 TensorFlow [2]、Ceres [15]、GTSAM [252] 和 g2o [402] 等众多项目采用。面向 C、C++、Fortran 和 Python 的 GPU 加速库 ArrayFire [727] 包含简洁 API，并提供针对 GPU 优化的函数。
+
+**机器学习库** 更关注张量（即高维矩阵）上的运算和自动微分。Torch [228]、OpenNN [830] 和 MATLAB [738] 等早期机器学习框架为研究人员开发神经网络提供了基础工具，但它们只支持 CPU 计算且缺少简洁 API，限制了可用性。几年后，Chainer [1101]、Theano [24] 和 Caffe [518] 等深度学习框架出现，以应对神经网络规模和复杂度的增长；它们支持多 GPU 训练，并为用户构建和训练神经网络提供了便捷 API。进一步地，TensorFlow [2]、PyTorch [850] 和 MXNet [184] 等近期框架提供了完整而灵活的生态系统，例如多种编程语言 API、分布式数据并行训练，以及基准测试和部署辅助工具。Gvnn [430] 将可微变换层引入基于 Torch 的框架，从而实现端到端几何学习。JAX [110] 可自动微分原生 Python 和 NumPy 函数，并是一个可组合函数变换的可扩展系统。这些框架的出现以多种方式促进了深度学习的发展。近来，人们进一步努力将标准优化工具与深度学习结合。这些工作如 Theseus [873] 和 Cvxpy-Layer [18] 展示了如何将可微优化嵌入深度神经网络。PyPose [1145] 集成 Gauss-Newton 和 Levenberg-Marquardt 等二阶优化器，并可计算 Lie 群和 Lie 代数的任意阶梯度，这些能力对于机器人学至关重要。
+
+**其他专用优化库** 也已在机器人学中开发和应用。举例而言，Ceres [15] 是面向大规模非线性最小二乘优化问题的开源 C++ 库，已广泛用于 SLAM。Pyomo [434] 和 JuMP [292] 是优化框架，因其灵活支持构建、求解和分析优化模型的多种工具而被广泛使用。CasADi [32] 凭借对最优控制多种数值方法的快速有效实现，已用于求解机器人学中的许多现实控制问题。位姿优化和因子图优化也在机器人学中发挥重要作用。例如，g<sup>2</sup>o [402] 和 GTSAM [252] 是用于基于图的非线性优化的开源 C++ 框架，提供构建新问题的简洁 API，并已用于解决 SLAM 中的多个优化问题。
+
+优化库也已广泛用于机器人控制问题。举例而言，IPOPT [1139] 是基于内点法的非线性规划开源 C++ 求解器，广泛用于机器人与控制。类似地，OpenOCL [590] 支持连续时间、离散时间、约束、无约束、多阶段和轨迹优化等多类优化问题，可用于实时模型预测控制。另一种面向大规模最优控制和估计问题的库是 CT [383]，它为不同的最优控制求解器提供标准接口，并可扩展到机器人应用中的广泛动力学系统。Drake [1079] 为常见控制问题提供求解器，可直接与其仿真工具箱集成；其系统完整性使其受到研究人员青睐。
+
+## 4.5 延伸阅读与近期趋势
+
+近年来，深度学习方法取得显著发展 [1286]。作为数据驱动方法，相较于传统手工特征，深度学习被认为在视觉跟踪中表现更好。该领域的多数研究采用端到端结构，包括 DeepVO [1163] 和 TartanVO [1167] 等有监督方法，以及 UnDeepVO [656] 和 Unsupervised VIO [1173] 等无监督方法。一般认为，有监督方法能够从位姿、光流和深度等多样的真值中学习，因此性能优于无监督方法；但在真实世界中获取这类真值是一项劳动密集型工作 [1166]。
+
+近来，混合方法日益受到关注，因为它们整合了基于几何方法与深度学习方法的优势。一些研究探索了将 BA 与深度学习结合，以在帧间施加拓扑一致性，例如为学习网络附加 BA 层的 BA-Net [1068] 和 DROID-SLAM [1082]。此外，另一些工作侧重于将图像特征压缩为编码（嵌入式特征），并在推理期间优化位姿-编码图，例如 DeepFactors [236]。DifPoseNet [842] 则使用网络预测位姿和法向流，并通过 Cheirality 层微调粗略预测。然而，在这些工作中，基于学习的方法与基于几何的优化是解耦的，分别用于不同子模块。前端和后端缺少集成可能导致次优性能；此外，它们仅将位姿误差“穿过”BA 反向传播，因此监督信号来自真值位姿。在这种情形下，BA 只是网络的一个特殊层。近期，iSLAM [346] 以双向方式连接前端和后端，并通过双层优化框架迫使学习模型从几何优化中学习，在不使用外部监督的条件下实现性能提升。其他任务也可表述为双层优化，例如强化学习 [1027]、局部规划 [1216]、全局规划 [186]、特征匹配 [1267] 和多机器人路径规划 [419]。

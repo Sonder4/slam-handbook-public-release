@@ -9,4 +9,6 @@ translation-zh/site/
 translation-zh/site-docs/
 translation-zh/content/assets/
 translation-zh/content/original/images/
+translation-zh/content/original/extracted/
+translation-zh/content/original/extracted-check/
 __pycache__/

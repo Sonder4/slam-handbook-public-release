@@ -1,0 +1,22 @@
+{
+  "chapters": {
+    "1": {
+      "status": "approved",
+      "reviewed_on": "2026-08-09"
+    },
+    "2": {
+      "status": "approved",
+      "reviewed_on": "2026-08-09"
+    },
+    "3": {
+      "status": "approved",
+      "reviewed_on": "2026-08-09",
+      "review_scope": "原意、术语、公式变量、图片、引用与 Markdown 结构"
+    },
+    "4": {
+      "status": "approved",
+      "reviewed_on": "2026-08-09",
+      "review_scope": "原意、术语、公式变量、图片、引用与 Markdown 结构"
+    }
+  }
+}

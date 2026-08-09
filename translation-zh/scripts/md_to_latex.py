@@ -76,7 +76,7 @@ def normalize_math(formula: str) -> str:
 
 def heading_command(level: int, title: str) -> str:
     title = title.strip()
-    chapter_match = re.match(r"第\s*([12])\s*章\s*(.*)$", title)
+    chapter_match = re.match(r"第\s*(\d+)\s*章\s*(.*)$", title)
     if level == 2 and chapter_match:
         return rf"\chapter{{{escape_text(chapter_match.group(2).strip())}}}"
 
@@ -162,7 +162,7 @@ def convert_markdown(source: Path) -> str:
     return "\n".join(output) + "\n"
 
 
-def validate_markdown(paths: list[Path]) -> list[str]:
+def validate_markdown(paths: list[Path]) -> tuple[list[str], int, int]:
     errors: list[str] = []
     tags: list[str] = []
     images: list[str] = []
@@ -177,25 +177,29 @@ def validate_markdown(paths: list[Path]) -> list[str]:
 
     if len(tags) != len(set(tags)):
         errors.append("duplicate equation tags found")
-    if len(set(images)) != 14:
-        errors.append(f"expected 14 unique images, found {len(set(images))}")
-    return errors
+    return errors, len(set(tags)), len(set(images))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", nargs=2, type=Path, required=True)
-    parser.add_argument("--output", nargs=2, type=Path, required=True)
+    parser.add_argument("--input", nargs="+", type=Path, required=True)
+    parser.add_argument("--output", nargs="+", type=Path, required=True)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
-    errors = validate_markdown(args.input)
+    if len(args.input) != len(args.output):
+        parser.error("--input and --output must contain the same number of chapter files")
+
+    errors, equation_count, figure_count = validate_markdown(args.input)
     if errors:
         for error in errors:
             print(f"ERROR: {error}")
         return 1
     if args.check:
-        print(f"Validated {len(args.input)} chapters, 148 equation tags, and 14 figures.")
+        print(
+            f"Validated {len(args.input)} chapters, {equation_count} equation tags, "
+            f"and {figure_count} figures."
+        )
         return 0
 
     for source, destination in zip(args.input, args.output):

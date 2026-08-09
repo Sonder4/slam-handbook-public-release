@@ -56,8 +56,8 @@ jobs:
       - name: Upload generated PDF
         uses: actions/upload-artifact@v4
         with:
-          name: slam-handbook-zh-ch1-2-pdf
-          path: translation-zh/dist/slam-handbook-zh-ch1-2.pdf
+          name: slam-handbook-zh-pdf
+          path: translation-zh/dist/slam-handbook-zh.pdf
           if-no-files-found: error
 
   deploy-pages:
