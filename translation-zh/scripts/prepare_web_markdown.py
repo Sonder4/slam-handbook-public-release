@@ -20,7 +20,7 @@ ENGLISH_FORMULA_REF_RE = re.compile(
     r"(?P<label>Equation\s*\(?\s*(?P<number>\d+\.\d+[a-z]?)\s*\)?)"
 )
 TAG_RE = re.compile(r"\\tag\s*\{([^{}]+)\}")
-CITATION_RE = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
+CITATION_RE = re.compile(r"\[(\d+(?:\s*(?:[,;]|[-–—])\s*\d+)*)\]")
 AUTHOR_RE = re.compile(r"^\*\*作者：\*\*")
 FIGURE_REF_RE = re.compile(r"图\s*(?P<number>\d+\.\d+)\b")
 FORMULA_REF_RE = re.compile(
@@ -181,11 +181,22 @@ def counterpart_link(chapter_number: str, language: str) -> str:
             f'<a class="counterpart-link" href="../chapter-{chapter_number}/">'
             "中文译文</a>"
         )
+    if language == "zh":
+        # Keep the Chinese chapter as the canonical page. The bilingual
+        # reader opens in place instead of creating a duplicate nav entry.
+        parallel = (
+            f'<button type="button" class="counterpart-link bilingual-toggle" '
+            f'data-bilingual-toggle data-english-url="../original-chapter-{chapter_number}/?embed=1" '
+            'aria-expanded="false">中英对照阅读</button>'
+        )
+        return (
+            '<nav class="chapter-reader-links" aria-label="章节阅读模式">'
+            f"{counterpart}{parallel}"
+            "</nav>"
+        )
     return (
         '<nav class="chapter-reader-links" aria-label="章节阅读模式">'
         f"{counterpart}"
-        f'<a class="counterpart-link" href="../parallel-chapter-{chapter_number}/">'
-        "中英对照阅读</a>"
         "</nav>"
     )
 
@@ -297,22 +308,37 @@ def source_chapter_range(lines: list[str], chapter_number: str) -> tuple[int, in
         "4": "Chen Wang, Krishna Murthy Jatavallabhula, and Mustafa Mukadam",
         "5": "Dense Map Representations",
         "6": "# Certifiably Optimal Solvers and Theoretical Properties of SLAM",
+        "7": "Visual SLAM",
+        "8": "LiDAR SLAM",
+        "9": "Radar SLAM",
+        "10": "Event-based SLAM",
+        "11": "Inertial Odometry for SLAM",
+        "12": "Leg Odometry for SLAM",
+        "13": "# Boosting SLAM with Deep Learning",
+        "14": "# Map Representations with Diferentiable Volume Rendering",
+        "15": "# Dynamic and Deformable SLAM",
+        "16": "Metric-Semantic SLAM",
+        "17": "# 17 Towards Open-World Spatial AI",
+        "18": "The Computational Structure of Spatial AI Systems Andrew J. Davison",
     }
+    def matches_marker(line: str, marker: str) -> bool:
+        value = line.strip()
+        return value == marker or value.startswith(marker + " ")
+
     start = next(
         index
         for index, line in enumerate(lines)
-        if line.strip() == chapter_titles[chapter_number]
-        and index > 500
+        if matches_marker(line, chapter_titles[chapter_number]) and index > 500
     )
     next_title = (
         chapter_titles[str(int(chapter_number) + 1)]
-        if chapter_number != "6"
-        else "PART II SLAM IN PRACTICE"
+        if chapter_number != "6" and chapter_number != "18"
+        else ("PART II SLAM IN PRACTICE" if chapter_number == "6" else "# Epilogue")
     )
     end = next(
         index
         for index in range(start + 1, len(lines))
-        if lines[index].strip() == next_title
+        if matches_marker(lines[index], next_title)
         and index > start + 100
     )
     return start, end
@@ -349,6 +375,66 @@ ENGLISH_CHAPTER_METADATA = {
         "title": "Certifiably Optimal Solvers and Theoretical Properties of SLAM",
         "authors": "David M. Rosen, Kasra Khosoussi, Connor Holmes, Gamini Dissanayake, Timothy Barfoot, and Luca Carlone",
     },
+    "7": {
+        "source_title": "Visual SLAM",
+        "title": "Visual SLAM",
+        "authors": "Jakob Engel, Juan D. Tardós, Javier Civera, Margarita Chli, Stefan Leutenegger, Frank Dellaert, and Daniel Cremers",
+    },
+    "8": {
+        "source_title": "LiDAR SLAM",
+        "title": "LiDAR SLAM",
+        "authors": "Jens Behley, Maurice Fallon, Shibo Zhao, Giseop Kim, Ji Zhang, Fu Zhang, and Ayoung Kim",
+    },
+    "9": {
+        "source_title": "Radar SLAM",
+        "title": "Radar SLAM",
+        "authors": "Martin Magnusson, Christoffer Heckman, Henrik Andreasson, Ayoung Kim, Timothy Barfoot, Michael Kaess, and Paul Newman",
+    },
+    "10": {
+        "source_title": "Event-based SLAM",
+        "title": "Event-based SLAM",
+        "authors": "Guillermo Gallego, Javier Hidalgo-Carrió, and Davide Scaramuzza",
+    },
+    "11": {
+        "source_title": "Inertial Odometry for SLAM",
+        "title": "Inertial Odometry for SLAM",
+        "authors": "Guoquan (Paul) Huang, Cédric Le Gentil, Teresa Vidal-Calleja, Davide Scaramuzza, Frank Dellaert, and Luca Carlone",
+    },
+    "12": {
+        "source_title": "Leg Odometry for SLAM",
+        "title": "Leg Odometry for SLAM",
+        "authors": "Marco Camurri and Matías Mattamala",
+    },
+    "13": {
+        "source_title": "# Boosting SLAM with Deep Learning",
+        "title": "Boosting SLAM with Deep Learning",
+        "authors": "Zachary Teed, Jia Deng, Boris Chidlovskii, Jérôme Revaud, Felix Wimbauer, and Daniel Cremers",
+    },
+    "14": {
+        "source_title": "# Map Representations with Diferentiable Volume Rendering",
+        "title": "Map Representations with Differentiable Volume Rendering",
+        "authors": "Hidenobu Matsuki and Andrew J. Davison",
+    },
+    "15": {
+        "source_title": "# Dynamic and Deformable SLAM",
+        "title": "Dynamic and Deformable SLAM",
+        "authors": "Lukas Schmid, Jose Maria Martinez Montiel, Shoudong Huang, Daniel Cremers, Jose Neira, and Javier Civera",
+    },
+    "16": {
+        "source_title": "Metric-Semantic SLAM",
+        "title": "Metric-Semantic SLAM",
+        "authors": "Arash Asgharivaskasi, Kevin Doherty, Jens Behley, Nathan Hughes, Yun Chang, John Leonard, Henrik I. Christensen, Luca Carlone, and Nikolay Atanasov",
+    },
+    "17": {
+        "source_title": "# 17 Towards Open-World Spatial AI",
+        "title": "Towards Open-World Spatial AI",
+        "authors": "Liam Paull, Sacha Morin, Dominic Maggio, Martin Büchner, Cesar Cadena, Abhinav Valada, and Luca Carlone",
+    },
+    "18": {
+        "source_title": "The Computational Structure of Spatial AI Systems Andrew J. Davison",
+        "title": "The Computational Structure of Spatial AI Systems",
+        "authors": "Andrew J. Davison",
+    },
 }
 
 
@@ -358,10 +444,14 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
     metadata = ENGLISH_CHAPTER_METADATA[chapter_number]
     title = metadata["title"]
     authors = metadata["authors"]
-    body_start = next(
-        index for index, line in enumerate(chapter) if line.strip() == metadata["source_title"]
-    )
-    body = chapter[body_start + 1 :]
+    source_title = metadata.get("source_title")
+    if source_title and any(line.strip() == source_title for line in chapter):
+        body_start = next(
+            index for index, line in enumerate(chapter) if line.strip() == source_title
+        )
+        body = chapter[body_start + 1 :]
+    else:
+        body = chapter
     while body and not body[0].strip():
         body = body[1:]
     if body and body[0].strip() == authors:
@@ -581,9 +671,10 @@ def main() -> int:
         destination.write_text(
             transform_english_chapter(english_lines, chapter_number), encoding="utf-8"
         )
-        (output_dir / f"parallel-chapter-{chapter_number}.md").write_text(
-            make_parallel_reader(chapter_number), encoding="utf-8"
-        )
+        # Bilingual reading is embedded into the canonical Chinese page.
+        parallel_page = output_dir / f"parallel-chapter-{chapter_number}.md"
+        if parallel_page.exists():
+            parallel_page.unlink()
 
     print(
         f"Prepared {len(chapters)} Chinese chapters, {len(chapter_numbers)} English chapters, "

@@ -25,9 +25,9 @@ SLAM 的平滑方法不仅考虑机器人当前时刻的位置，还考虑截至
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{7f2cd7879950afca0abfe3a2c35a1a703e4d6c8e28ee44484e2aef43386318b3.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{7f2cd7879950afca0abfe3a2c35a1a703e4d6c8e28ee44484e2aef43386318b3.jpg}
 \caption{图 1.1 三个位姿和两个路标构成的玩具同步定位与建图（SLAM）示例。图中用箭头示意机器人运动，用虚线表示方位测量。}
-\label{fig:7f2cd7879950afca0abfe3a2c35a1a703e4d6c8e28ee44484e2aef43386318b3}
+\label{fig:chapter-1-7f2cd7879950afca0abfe3a2c35a1a703e4d6c8e28ee44484e2aef43386318b3}
 \end{figure}
 
 由于测量存在不确定性，我们不可能恢复世界的真实状态，但可以得到一个关于测量能够推断出的内容的概率描述。在贝叶斯概率框架中，我们使用概率论的语言，为不确定事件赋予主观的可信程度。具体而言，对未知变量 $\pmb x$ 定义概率密度函数（probability density function，PDF）$p(\pmb x)$。PDF 是满足下式的非负函数：
@@ -56,9 +56,9 @@ p (\boldsymbol {x} | \boldsymbol {z}),\tag{1.3}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{de0dd895a761a6a8ef2799623bc1231feeeca13f4f5f7a71c2097acf985dfe2a.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{de0dd895a761a6a8ef2799623bc1231feeeca13f4f5f7a71c2097acf985dfe2a.jpg}
 \caption{图 1.2 图 1.1 示例对应的贝叶斯网络，其中将已知测量 $z_1\ldots z_4$ 明确表示为方形节点。}
-\label{fig:de0dd895a761a6a8ef2799623bc1231feeeca13f4f5f7a71c2097acf985dfe2a}
+\label{fig:chapter-1-de0dd895a761a6a8ef2799623bc1231feeeca13f4f5f7a71c2097acf985dfe2a}
 \end{figure}
 
 \subsection{因子图视角}
@@ -89,9 +89,9 @@ p (\pmb {x} | \pmb {z}) \propto p (\pmb {p} _ {1}) p (\pmb {p} _ {2} | \pmb {p} 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{0d4454ba5350193460ee9f212f491ce8f8f7890456553f8baea8c7f096294afa.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{0d4454ba5350193460ee9f212f491ce8f8f7890456553f8baea8c7f096294afa.jpg}
 \caption{图 1.3 图 1.1 示例得到的因子图。}
-\label{fig:0d4454ba5350193460ee9f212f491ce8f8f7890456553f8baea8c7f096294afa}
+\label{fig:chapter-1-0d4454ba5350193460ee9f212f491ce8f8f7890456553f8baea8c7f096294afa}
 \end{figure}
 
 \begin{equation}
@@ -120,18 +120,18 @@ p (\pmb {x} | \pmb {z}) \propto p (\pmb {p} _ {1}) p (\pmb {p} _ {2} | \pmb {p} 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{6a99785c0b3ee0e08985a7267ad8e41222afe130702e8ee950c0d95d9bc80ad6.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{6a99785c0b3ee0e08985a7267ad8e41222afe130702e8ee950c0d95d9bc80ad6.jpg}
 \caption{图 1.4 几种都可以用因子图视角表示的 SLAM 问题变体。典型的基于路标的 SLAM 同时包含位姿变量和路标变量；从位姿观测路标，并且位姿之间通常存在基于里程计的运动先验。束调整（BA）与之相同，但不包含运动先验。位姿图优化（PGO）不含路标变量，但在位姿之间增加了回环测量。最后，同时轨迹估计与建图（STEAM）与基于路标的 SLAM 类似，只是将位姿替换为更高阶状态，并采用平滑的连续时间运动先验。}
-\label{fig:6a99785c0b3ee0e08985a7267ad8e41222afe130702e8ee950c0d95d9bc80ad6}
+\label{fig:chapter-1-6a99785c0b3ee0e08985a7267ad8e41222afe130702e8ee950c0d95d9bc80ad6}
 \end{figure}
 
 多种形式的 SLAM 问题都可以很容易地用因子图表示。图 1.1 是基于路标的 SLAM 示例，因为其中同时包含位姿变量和路标变量。图 1.4 给出了其他几种变体，包括束调整（bundle adjustment，BA；与基于路标的 SLAM 相同，但没有运动模型）、位姿图优化（pose-graph optimization，PGO；没有路标变量，但包含位姿之间的回环约束），以及同时轨迹估计与建图（simultaneous trajectory estimation and mapping，STEAM；在位姿中加入速度等导数项）。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{2d8cd5ffea6b9e14aa6cb1113efedd6424a226fa48a229db8350f93fde3f9e64.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{2d8cd5ffea6b9e14aa6cb1113efedd6424a226fa48a229db8350f93fde3f9e64.jpg}
 \caption{图 1.5 一个规模更大的模拟 SLAM 示例因子图。}
-\label{fig:2d8cd5ffea6b9e14aa6cb1113efedd6424a226fa48a229db8350f93fde3f9e64}
+\label{fig:chapter-1-2d8cd5ffea6b9e14aa6cb1113efedd6424a226fa48a229db8350f93fde3f9e64}
 \end{figure}
 
 比图 1.1 的玩具示例更接近实际的基于路标的 SLAM 问题，其因子图可能类似图 1.5。该图通过模拟一个在平面内运动约 100 个时间步、同时观测路标的二维机器人生成。为便于可视化，每个位姿和路标都按其真实二维位置绘制。可以看到，里程计因子形成了显著的链状骨架，而在两侧则有二元\textsuperscript{2}似然因子连接到约 20 个路标。在这类 SLAM 问题中，除先验之外，所有因子通常都是非线性的。
@@ -486,9 +486,9 @@ Powell 的 dogleg（PDL）算法 \textsuperscript{[885]} 可以作为 LM 的更�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{9e5631051f6c2aeb5026d609b884773bd2902fc60e87816bfa9f5ecda4ab10d4.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{9e5631051f6c2aeb5026d609b884773bd2902fc60e87816bfa9f5ecda4ab10d4.jpg}
 \caption{图 1.7 图 1.1 玩具 SLAM 示例的稀疏雅可比矩阵 $A$ 的分块结构，其中空白项为零。}
-\label{fig:9e5631051f6c2aeb5026d609b884773bd2902fc60e87816bfa9f5ecda4ab10d4}
+\label{fig:chapter-1-9e5631051f6c2aeb5026d609b884773bd2902fc60e87816bfa9f5ecda4ab10d4}
 \end{figure}
 
 \subsection{稀疏信息矩阵及其图}
@@ -501,9 +501,9 @@ Powell 的 dogleg（PDL）算法 \textsuperscript{[885]} 可以作为 LM 的更�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{4f020457cc25171d369116da03c553cf2f3bd9c2efab51f4b769b89ac0e14913.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{4f020457cc25171d369116da03c553cf2f3bd9c2efab51f4b769b89ac0e14913.jpg}
 \caption{图 1.8 玩具 SLAM 问题的信息矩阵 $\pmb\Lambda$ 及其关联的无向图 $G$。}
-\label{fig:4f020457cc25171d369116da03c553cf2f3bd9c2efab51f4b769b89ac0e14913}
+\label{fig:chapter-1-4f020457cc25171d369116da03c553cf2f3bd9c2efab51f4b769b89ac0e14913}
 \end{figure}
 
 \subsection{稀疏分解}
@@ -518,9 +518,9 @@ Powell 的 dogleg（PDL）算法 \textsuperscript{[885]} 可以作为 LM 的更�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{f5fad5e1ec472a6b428b7a6fe55523c80ff02dd7cd4a0aea9f1935d0fb1fde57.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{f5fad5e1ec472a6b428b7a6fe55523c80ff02dd7cd4a0aea9f1935d0fb1fde57.jpg}
 \caption{图 1.9 左侧是图 1.5 问题对应的测量雅可比矩阵 $A$；右侧从上到下依次为信息矩阵 $\pmb\Lambda=A^\top A$、其上三角 Cholesky 因子 $R$，以及采用更优变量排序（COLAMD）得到的替代因子 $R$。}
-\label{fig:f5fad5e1ec472a6b428b7a6fe55523c80ff02dd7cd4a0aea9f1935d0fb1fde57}
+\label{fig:chapter-1-f5fad5e1ec472a6b428b7a6fe55523c80ff02dd7cd4a0aea9f1935d0fb1fde57}
 \end{figure}
 
 \section{消元}
@@ -555,9 +555,9 @@ p (\boldsymbol {x}) = p \left(\boldsymbol {x} _ {1} \mid \boldsymbol {s} _ {1}\r
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{f367ec43cda5f3fdc37108cc58b8d68b91a0b1c5fd955c49cbdb6bffb688dce4.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{f367ec43cda5f3fdc37108cc58b8d68b91a0b1c5fd955c49cbdb6bffb688dce4.jpg}
 \caption{图 1.10 玩具 SLAM 示例的变量消元：按 $\ell_1,\ell_2,p_1,p_2,p_3$ 的顺序，将图 1.3 的因子图转换为贝叶斯网络（右下）。}
-\label{fig:f367ec43cda5f3fdc37108cc58b8d68b91a0b1c5fd955c49cbdb6bffb688dce4}
+\label{fig:chapter-1-f367ec43cda5f3fdc37108cc58b8d68b91a0b1c5fd955c49cbdb6bffb688dce4}
 \end{figure}
 
 因此，从 $\phi(\pmb x)$ 到 $p(\pmb x)$ 的完整分解，可以看作连续执行 $n$ 个局部分解步骤。当消除最后一个变量 $\pmb x_n$ 时，分隔集 $s_n$ 为空，因此得到的条件密度只是对 $\pmb x_n$ 的先验 $p(\pmb x_n)$。
@@ -624,18 +624,18 @@ p \left(\ell_ {1}, \ell_ {2}, \boldsymbol {p} _ {1}, \boldsymbol {p} _ {2}, \bol
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{7f7da02ffac9b2ac7ca9019d72b500da0d139492bdb2841af98e305211d9b176.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{7f7da02ffac9b2ac7ca9019d72b500da0d139492bdb2841af98e305211d9b176.jpg}
 \caption{图 1.11 将变量 $\ell_1$ 消元作为一次部分稀疏分解步骤。}
-\label{fig:7f7da02ffac9b2ac7ca9019d72b500da0d139492bdb2841af98e305211d9b176}
+\label{fig:chapter-1-7f7da02ffac9b2ac7ca9019d72b500da0d139492bdb2841af98e305211d9b176}
 \end{figure}
 
 使用部分 QR 分解消除单个变量的完整消元算法，等价于稀疏 QR 分解。由于上面的处理考虑了多维变量 $\pmb x_j\in\mathbb{R}^{n_j}$，因此实际上这是多前沿 QR 分解 \textsuperscript{[288]} 的一个实例：每次同时消除多个标量变量，这有利于提高处理器利用率。在这里，标量变量按其在推断问题中的语义进行分组；而稀疏线性代数程序通常会按最大化计算效率的目标分析并分组问题。许多情况下，这两种策略高度一致。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{e2e8d95287a0da35908e51410277a99b2c009af7c8e501191f52e42f89f6f4b6.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{e2e8d95287a0da35908e51410277a99b2c009af7c8e501191f52e42f89f6f4b6.jpg}
 \caption{图 1.12 玩具示例中剩余的消元步骤，完成一次完整 QR 分解。右下角的最后一步展示了最终贝叶斯网络与稀疏 Cholesky 因子 $R$ 的等价性。}
-\label{fig:e2e8d95287a0da35908e51410277a99b2c009af7c8e501191f52e42f89f6f4b6}
+\label{fig:chapter-1-e2e8d95287a0da35908e51410277a99b2c009af7c8e501191f52e42f89f6f4b6}
 \end{figure}
 
 \subsection{作为贝叶斯网络的稀疏 Cholesky 因子}

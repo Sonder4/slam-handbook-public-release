@@ -102,15 +102,41 @@ def table_cells(row: str) -> list[str]:
 def latex_table(rows: list[list[str]]) -> list[str]:
     """Render a compact, readable LaTeX table from Markdown rows."""
     column_count = max(len(row) for row in rows)
-    widths = "".join("p{0.29\\linewidth}" for _ in range(column_count))
-    output = [r"\begin{center}", r"\small", rf"\begin{{tabular}}{{{widths}}}", r"\toprule"]
+    # Keep tables within the text block at the requested page margins.  The
+    # previous fixed width was suitable only for three-column tables and made
+    # wider source tables overflow by several text widths.
+    column_width = (0.90 if column_count >= 7 else 0.95) / column_count
+    widths = "".join(f"p{{{column_width:.3f}\\linewidth}}" for _ in range(column_count))
+    size = r"\scriptsize" if column_count >= 7 else r"\small"
+    long_table = len(rows) > 15
+    output = [size, r"\setlength{\tabcolsep}{2pt}"]
+    if long_table:
+        output.append(rf"\begin{{longtable}}{{{widths}}}")
+    else:
+        output.extend([r"\begin{center}", rf"\begin{{tabular}}{{{widths}}}"])
+    output.append(r"\toprule")
     for index, row in enumerate(rows):
         padded = row + [""] * (column_count - len(row))
         cells = " & ".join(escape_text(cell) for cell in padded)
         output.append(cells + r" \\")
         if index == 0:
             output.append(r"\midrule")
-    output.extend([r"\bottomrule", r"\end{tabular}", r"\end{center}", ""])
+            if long_table:
+                output.extend(
+                    [
+                        r"\endfirsthead",
+                        r"\toprule",
+                        cells + r" \\",
+                        r"\midrule",
+                        r"\endhead",
+                    ]
+                )
+    output.append(r"\bottomrule")
+    if long_table:
+        output.append(r"\end{longtable}")
+    else:
+        output.extend([r"\end{tabular}", r"\end{center}"])
+    output.append("")
     return output
 
 
@@ -191,11 +217,13 @@ def convert_markdown(source: Path) -> str:
             if caption_index < len(lines) and lines[caption_index].strip().startswith("图"):
                 caption = lines[caption_index].strip()
                 index = caption_index
-            stem = re.sub(r"[^A-Za-z0-9_-]", "-", Path(image_path).stem)
+            image_stem = re.sub(r"[^A-Za-z0-9_-]", "-", Path(image_path).stem)
+            chapter_stem = re.sub(r"[^A-Za-z0-9_-]", "-", source.stem)
+            stem = f"{chapter_stem}-{image_stem}"
             figure = [
                 r"\begin{figure}[htbp]",
                 r"\centering",
-                rf"\includegraphics[width=\linewidth]{{{image_path}}}",
+                rf"\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{{{image_path}}}",
             ]
             if caption:
                 figure.append(rf"\caption{{{escape_text(caption)}}}")

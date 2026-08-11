@@ -1,4 +1,6 @@
 /* Print-like chapter rhythm, while figures and mathematics retain their own layout. */
+html,
+body { overflow-x: hidden; }
 .arithmatex { overflow-x: auto; overflow-y: hidden; }
 .md-typeset img { max-width: 100%; height: auto; }
 .md-typeset .book-paragraph {
@@ -36,6 +38,10 @@
   font-size: 0.75rem;
   font-weight: 600;
   text-indent: 0;
+  background: transparent;
+  color: var(--md-typeset-a-color);
+  cursor: pointer;
+  font-family: inherit;
 }
 .md-typeset .chapter-reader-links {
   display: flex;
@@ -49,30 +55,33 @@
 .md-typeset .reference-index { margin: 1rem 0 1.5rem; }
 .md-typeset .reference-index p { line-height: 1.8; }
 
-/* The comparison pages render the canonical Chinese and English pages in place. */
-.parallel-iframe-reader {
+/* The canonical Chinese chapter can expand into a native Chinese/English reader. */
+.bilingual-reader-layout { min-width: 0; }
+.bilingual-reader-pane { min-width: 0; }
+.bilingual-reader-pane--english { display: none; }
+body.bilingual-reader-page .bilingual-reader-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  height: calc(100vh - 11rem);
-  min-height: 40rem;
-  overflow: hidden;
-  border: 1px solid var(--md-default-fg-color--lighter);
-  background: var(--md-default-fg-color--lighter);
+  gap: 1.25rem;
+  align-items: start;
 }
-.parallel-iframe-pane {
+body.bilingual-reader-page .bilingual-reader-pane--english {
+  position: sticky;
+  top: 4rem;
   display: grid;
-  min-width: 0;
+  height: calc(100vh - 5rem);
   grid-template-rows: auto minmax(0, 1fr);
+  border-left: 1px solid var(--md-default-fg-color--lighter);
   background: var(--md-default-bg-color);
 }
-.parallel-iframe-heading {
+.bilingual-reader-heading {
   margin: 0;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid var(--md-default-fg-color--lighter);
   font-size: 0.9rem;
   font-weight: 700;
 }
-.parallel-iframe-pane iframe {
+.bilingual-reader-pane iframe {
   display: block;
   width: 100%;
   height: 100%;
@@ -107,8 +116,8 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
 /* Fixed desktop readers: navigation and in-page outline align with browser edges. */
 @media screen and (min-width: 76.25em) {
   :root {
-    --reader-sidebar-width: 17.5rem;
-    --reader-sidebar-toggle: 2.2rem;
+    --reader-sidebar-width: 280px;
+    --reader-sidebar-toggle: 36px;
   }
 
   body.reader-primary-collapsed {
@@ -119,6 +128,7 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
   }
 
   .md-main__inner {
+    display: block;
     max-width: none;
     margin: 0;
     padding: 0;
@@ -155,14 +165,14 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
   }
   .md-content {
     width: auto;
-    margin-left: calc(var(--reader-primary-width, var(--reader-sidebar-width)) + 2.25rem);
-    margin-right: calc(var(--reader-secondary-width, var(--reader-sidebar-width)) + 2.25rem);
+    margin-left: calc(var(--reader-primary-width, var(--reader-sidebar-width)) + 36px);
+    margin-right: calc(var(--reader-secondary-width, var(--reader-sidebar-width)) + 36px);
   }
   .md-content__inner {
     max-width: 52rem;
     margin: 0 auto;
   }
-  body.parallel-reader-page .md-content__inner { max-width: none; }
+  body.bilingual-reader-page .md-content__inner { max-width: none; }
   body.reader-primary-collapsed .md-sidebar--primary,
   body.reader-secondary-collapsed .md-sidebar--secondary {
     width: var(--reader-sidebar-toggle);
@@ -174,8 +184,8 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
   }
   .reader-sidebar-toggle {
     position: fixed;
-    top: calc(var(--md-header-height) + 0.5rem);
-    z-index: 3;
+    top: calc(var(--md-header-height, 3rem) + 0.5rem);
+    z-index: 5;
     width: 1.7rem;
     height: 1.9rem;
     padding: 0;
@@ -194,10 +204,14 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
 }
 
 @media screen and (max-width: 64em) {
-  .parallel-iframe-reader {
+  body.bilingual-reader-page .bilingual-reader-layout {
     grid-template-columns: 1fr;
-    height: auto;
-    overflow: visible;
   }
-  .parallel-iframe-pane iframe { height: 42rem; }
+  body.bilingual-reader-page .bilingual-reader-pane--english {
+    position: static;
+    height: 70vh;
+    min-height: 32rem;
+    border-top: 1px solid var(--md-default-fg-color--lighter);
+    border-left: 0;
+  }
 }

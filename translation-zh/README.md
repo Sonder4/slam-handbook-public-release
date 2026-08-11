@@ -4,8 +4,8 @@
 
 ```bash
 python scripts/md_to_latex.py \
-  --input content/chapter-1.md content/chapter-2.md content/chapter-3.md \
-  --output latex/chapters/chapter-1.tex latex/chapters/chapter-2.tex latex/chapters/chapter-3.tex
+  --input content/chapter-1.md content/chapter-2.md ... content/chapter-18.md \
+  --output latex/chapters/chapter-1.tex latex/chapters/chapter-2.tex ... latex/chapters/chapter-18.tex
 ```
 
 Windows 本机构建需要 Python 3.10+、MiKTeX 或 TeX Live（包含 XeLaTeX），以及 MkDocs Material：

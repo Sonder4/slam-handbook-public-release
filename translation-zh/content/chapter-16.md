@@ -1,0 +1,549 @@
+# 《SLAM Handbook：从定位与建图到空间智能》
+
+## 第 16 章  度量--语义 SLAM
+
+**作者：** Arash Asgharivaskasi、Kevin Doherty、Jens Behley、Nathan Hughes、Yun Chang、John Leonard、Henrik I. Christensen、Luca Carlone 和 Nikolay Atanasov
+
+本章讨论如何将 SLAM 方法生成的几何地图表示增强为语义信息更丰富的表示，以支持更广泛的下游任务，同时提升 SLAM 性能。SLAM 对移动机器人自主性至关重要，因为它使机器人能够在先验未知环境中定位自身并维护一致的地图表示。正如第 1 章所述，SLAM 的另一个同等重要的作用，是通过提供任务目标、运动目标及其约束，为机器人任务规划和运动规划提供信息。稠密地图表示（如第 5 章回顾的表示）能够高效编码机器人导航和操作中的碰撞检查安全约束。例如，可以利用占据表示 [94, 170]、有符号距离函数 [822, 1277] 和网格表示 [888, 112] 支持运动规划和轨迹优化。
+
+然而，当机器人任务包含更复杂的语义目标和要求（例如“导航到办公室中的笔记本电脑”，或“会议室内有人时不要进入”）时，仅靠环境的几何信息可能并不足够。在机器人导航中，可以利用环境语义（例如地图的一部分是道路、人行道还是植被）指定不同的可通行代价 [910, 666]。更一般地说，SLAM 技术生成的地图可以通过提供关于物体、地点及其关系的语义信息来支持机器人任务描述和规划。这些信息不仅对下游任务有用，对 SLAM 系统本身也常常有用：具有语义意义的特征更容易唯一识别，并且对视点变化更不敏感，从而改善数据关联和回环闭合 [108, 710]。类似地，语义信息有助于处理场景中的动态实体 [943]，因为动态实体通常不利于运动估计（参见第 15 章）。
+
+构建语义丰富的地图表示，需要从视觉观测中提取超越基于图像梯度关键点的附加信息。深度学习的发展使我们能够从视觉观测中获取物体检测、物体关键点、语义边缘、语义分割、实例分割、全景分割以及其他语义信息。物体检测是计算机视觉任务，通常通过边界框标注识别并定位图像中的物体。语义关键点 [854] 或语义边缘 [1257] 可以作为物体的中层部件被识别（例如门、车轮和汽车挡风玻璃）。语义分割 [444, 934] 超越了物体检测，为图像中的每个像素分配类别标签。实例分割还会识别并分离属于同一类别的不同物体，通过逐像素掩膜区分每个实例。全景分割 [580] 将语义分割与实例分割结合起来，同时分割背景和物体实例，以实现对图像的全面理解。
+
+本章介绍传统 SLAM 的不同扩展：利用视觉前端提供的语义信息，并将后端优化的地图推广为能够累积和融合这些信息的三维空间度量--语义表示。第 16.1 节先给出快速概览；第 16.2 节介绍如何将路标语义信息加入基于路标的 SLAM；第 16.3 节描述第 5 章稠密表示的扩展，以纳入语义信息；第 16.4 节讨论在不同抽象层次捕获语义的分层地图表示。最后，在第 16.5 节讨论近期趋势。本章聚焦于“封闭集”语义，即语义信息限于相对较小（例如 100--1000 个标签）且预定义的语义概念字典（例如“椅子”“桌子”“办公室”）。关于将开放集语义（即语言嵌入）纳入 SLAM 的讨论留到第 17 章。
+
+![](images/b6f322262df0548137cc40cfd63aa07be62afe702b9f3759fdc22a0db071176d.jpg)
+
+## 16.1 从传统 SLAM 到度量--语义 SLAM
+
+将语义信息纳入地图表示有多种方式。例如，可以在基于路标的地图中为路标添加语义，以包含稀疏语义信息；可以在基于稠密表面的地图中嵌入语义标签；甚至可以为自由空间的整个区域赋予语义（例如室内的房间，或室外更一般的区域，如停车场）。对于稀疏地图，需要将通常的三维点路标推广为能够表示物体类别以及可能的位姿和形状的路标。相应的传感器测量模型也需要从低层视觉关键点和特征扩展到边界框 [920]、分割掩膜 [444] 或物体部件 [854] 等高层检测。这会导出能够同时捕获度量信息和语义信息的新型概率因子及因子图优化技术。
+
+对于稠密地图，可以将占据模型从表示自由空间与占据空间的二值模型扩展为表示语义类别的多类别模型。更一般地说，前端计算机视觉模型提取的语义特征可以与稠密地图中维护的点、surfel、网格面或体素建立对应关系。除将语义观测变换到三维空间外，还需要为语义信息构造新的观测模型，并采用序贯概率推断技术更新语义地图信息。正如第 16.4 节将看到的，分层建图方法通常将稀疏和稠密的度量--语义地图组合为统一表示，在多个抽象层次描述语义，从稠密的表面地图到物体和区域。
+
+## 16.2 稀疏度量--语义表示
+
+考虑一个基于路标的 SLAM 问题，其中路标表示环境中的物理物体。我们将这一设置称为稀疏度量--语义 SLAM，因为地图由带有位置、方向和形状等度量属性，以及物体类别等语义属性的物体路标组成。如第 1 章所述，基于路标的 SLAM 通常表述为非线性最小二乘问题，路标观测在目标函数中产生平方项 $r_i(\boldsymbol{x}_i)^2$，残差为
+
+$$
+r_i(\boldsymbol{x}_i)=\left\|\boldsymbol{z}_i-h_i(\boldsymbol{T}_i,\boldsymbol{\ell}_i)\right\|_{\boldsymbol{\Sigma}_i}.\tag{16.1}
+$$
+
+其中 $\boldsymbol{z}_i$ 是测量，状态变量 $\boldsymbol{x}_i=(\boldsymbol{T}_i,\boldsymbol{\ell}_i)$ 包含机器人位姿 $\boldsymbol{T}_i$ 和路标状态 $\boldsymbol{\ell}_i$。与前面各章类似，索引 $i$ 指由成对的测量 $\boldsymbol{z}_i$ 和状态 $\boldsymbol{x}_i$ 在数据关联已知时引入因子图的因子。在视觉 SLAM（第 7 章）中，路标 $\boldsymbol{\ell}_i$ 最常表示为三维点，相应测量 $\boldsymbol{z}_i$ 是路标投影到图像平面的二维像素坐标。在稀疏度量--语义 SLAM 中，路标被推广为能够描述物体及其属性的模型。测量和残差误差也被推广为表示计算机视觉算法产生的物体检测，并度量三维空间中的物体投影到二维图像平面时的误差。下面讨论物体表示、物体测量以及物体残差的定义。
+
+### 16.2.1 物体表示与因子图建模
+
+我们先将路标从三维点扩展为刚体物体。物体路标不仅由位置决定，还由方向、尺度、形状和语义类别决定。
+
+**定义 16.1** 物体路标是元组 $\boldsymbol{\ell}=(\sigma,\boldsymbol{q},\lambda,\boldsymbol{s})$，其中语义类别 $\sigma\in\mathbb{N}$（例如“汽车”“椅子”“桌子”），位姿 $\boldsymbol{q}\in\mathrm{SE}(3)$，尺度 $\lambda\in\mathbb{R}_{>0}$，形状 $\boldsymbol{s}\in\mathbb{R}^{d}$。
+
+物体路标 $\boldsymbol{\ell}$ 的位姿 $\boldsymbol{q}$ 指定物体坐标系相对于地图世界坐标系的位置和方向。除刚体变换外，物体局部坐标系的定义还需要包含尺度，以允许同一类别、同一形状但尺寸不同的物体存在（例如汽车与玩具汽车）。下面介绍几种物体形状描述，并通过多个示例说明物体路标表示。与 SLAM 中的稠密表面建模（第 5 章）类似，物体形状 $\boldsymbol{s}$ 可以使用显式表面模型（例如点、基本几何图形或网格）或隐式表面模型（例如占据函数或有符号距离函数场）表示。下面给出物体 SLAM 中常用的物体形状表示。
+
+#### 16.2.1.1 将物体形状表示为语义路标
+
+给定类别的物体形状（定义 16.1）可以建模为稀疏三维点集合 $\{\boldsymbol{s}_j\}_j$，这些点称为语义路标，且 $\boldsymbol{s}_j\in\mathbb{R}^3$。语义路标通常对应物体的显著部件；例如，对汽车可以将语义关键点附着在车轮、后视镜和车牌等部位。虽然这种形状模型可以简单看作点云，但 SLAM 后端优化必须将三维语义路标与二维视觉观测联系起来，并度量相应残差。因此，语义路标不是一般点云，而是使用可变形（或主动）形状模型 [231] 定义在三维计算机辅助设计（Computer Aided Design，CAD）物体模型中的关键点：
+
+$$
+\boldsymbol{s}_j=\boldsymbol{b}_{j,0}+\sum_k c_k\boldsymbol{b}_{j,k}.\tag{16.2}
+$$
+
+其中，$\boldsymbol{b}_{j,0}$ 是类别平均形状模型中的语义路标，$\boldsymbol{b}_{j,k}$ 是通过 PCA 获得的若干形状变化模态，关联形状变形系数 $c_k\in\mathbb{R}_{\geq0}$，如 [854] 所述。例如，可以用语义路标 $\boldsymbol{b}_{j,0}$ 表示汽车物体的平均形状；为了允许不同品牌和型号的汽车实例存在形状变化，再沿主要变化模态 $\boldsymbol{b}_{j,k}$ 以系数 $c_k$ 进行形状变形。因此，可以直接优化 $\{\boldsymbol{s}_j\}_j$，或优化形状变形系数 $c_k$ [1006]，估计观测物体路标的形状。与优化彼此独立的点相比，式（16.2）的参数化确保语义路标描述合理的物体形状。
+
+将语义路标 $\boldsymbol{s}_j$ 投影到相机图像平面所得的二维点称为语义关键点 $\boldsymbol{z}_j\in\mathbb{R}^2$。可以使用监督学习训练的卷积神经网络模型检测相机图像中的语义关键点，模型输出以每个关键点为中心的二维高斯热图 [854, 1300]。图 16.1 展示了这一过程。
+
+![](images/eb528c03a96116b165eb31c4d7f0436d276e5a53bcf780d5a78565a55f5465ca.jpg)
+![](images/dcc3bcc44dc43ec848c23f13b2d3b384ba5e7519dd041d2684fbed574180a493.jpg)
+![](images/3e1369b17161b71319e83794ae71c3321e8edb81dc2e6de21aa6dcfe9d077d10.jpg)
+图 16.1 从 RGB 观测中提取的语义关键点。(a) 包含两辆汽车和一台配备相机的机器人的室外环境；(b) 相机坐标系中的 RGB 观测；(c) RGB 图像中检测到的语义关键点。
+
+对于物体路标 $\boldsymbol{\ell}_i$，设其世界坐标系位姿为 $\boldsymbol{q}_i$、尺度为 $\lambda_i$、语义路标形状为 $\{\boldsymbol{s}_{i,j}\}_j$，从相机位姿 $\boldsymbol{T}_i$（从相机光学坐标系到世界坐标系的变换）得到对应的语义关键点检测 $\{\boldsymbol{z}_{i,j}\}_j$。使用相机透视投影模型，可将二者之间的残差写为
+
+$$
+r_i(\boldsymbol{x}_i)^2=\sum_j\left\|\boldsymbol{z}_{i,j}-\boldsymbol{\pi}\left(\boldsymbol{q}_i^{-1}\boldsymbol{T}_i,\lambda_i\boldsymbol{s}_{i,j}\right)\right\|_{\boldsymbol{\Sigma}_i}^{2}.\tag{16.3}
+$$
+
+其中，$\boldsymbol{\pi}(\boldsymbol{T},\boldsymbol{s}_j)$ 表示将三维点 $\boldsymbol{s}_j$ 透视投影到位姿为 $\boldsymbol{T}$ 的相机图像平面二维像素坐标。具体而言，相机在物体坐标系中的位姿为 $\boldsymbol{q}_i^{-1}\boldsymbol{T}_i$；每个具有物体坐标系坐标的语义路标 $\boldsymbol{s}_{i,j}$ 先乘以 $\lambda_i$，再从物体坐标系变换到相机坐标系。由此得到的物体语义路标预测像素坐标，通过式（16.3）的残差与语义关键点检测 $\boldsymbol{z}_{i,j}$ 比较。
+
+图 16.2 展示了在真实 KITTI 数据集 [373] 上使用语义路标作为物体形状表示的物体 SLAM 示例。该方法扩展了 [108] 的工作，为每个物体使用多个语义路标，而不只是物体质心。
+
+#### 16.2.1.2 将物体形状表示为二次曲面
+
+另一种常用的物体形状显式模型基于二次曲面 [805, 821, 995]。这里将物体路标形状建模为椭球 $\mathcal{E}_{\boldsymbol{s}}\subset\mathbb{R}^3$，其半轴长度为 $\boldsymbol{s}\in\mathbb{R}^3$：
+
+$$
+\mathcal{E}_{\boldsymbol{s}}=\{\boldsymbol{x}\in\mathbb{R}^3\mid\boldsymbol{x}^{\top}\operatorname{diag}(\boldsymbol{s})^{-2}\boldsymbol{x}\leq1\}.\tag{16.4}
+$$
+
+![](images/934c750a2e7aa81f59c9e94ffdc36db9d5a2b7c3da8c86ff679a7ec985fc14b6.jpg)
+图 16.2 从 KITTI 数据集 [373] 的 RGB 图像中提取物体检测（左上蓝色边界框）、语义关键点（左上绿色二维点）和普通视觉关键点（左上红色二维点），用于估计汽车语义路标（绿色三维点，如车轮和前灯）、汽车位姿（以蓝色网格显示）以及传感器轨迹（黑色曲线）。
+
+将式（16.4）用齐次坐标改写，可以得到由矩阵 $\boldsymbol{Q}_{\boldsymbol{s}}\in\mathbb{R}^{4\times4}$ 定义的二次曲面 [805]：
+
+$$
+\mathcal{E}_{\boldsymbol{s}}=\left\{\boldsymbol{x}\in\mathbb{R}^{3}\ \middle|\ 
+\begin{bmatrix}\boldsymbol{x}\\1\end{bmatrix}^{\top}
+\begin{bmatrix}\operatorname{diag}(\boldsymbol{s})^{-2}&\boldsymbol{0}\\\boldsymbol{0}^{\top}&-1\end{bmatrix}
+\begin{bmatrix}\boldsymbol{x}\\1\end{bmatrix}\leq0\right\}.\tag{16.5}
+$$
+
+椭球形状表示很有吸引力，因为其在相机图像中的投影可以解析求得，进而可使用残差项与边界框物体检测比较（见图 16.3）。三维椭球与其二维圆锥曲线透视投影之间的关系，可以用对偶二次曲面表示解析得到。椭球 $\mathcal{E}_{\boldsymbol{s}}$ 的对偶是与其相切的所有超平面集合：
+
+$$
+\mathcal{E}_{\boldsymbol{s}}^{*}=\{\boldsymbol{y}\in\mathbb{R}^{3}\mid\boldsymbol{y}^{\top}\operatorname{diag}(\boldsymbol{s})^{2}\boldsymbol{y}\leq1\}
+=\left\{\boldsymbol{y}\in\mathbb{R}^{3}\ \middle|\ 
+\begin{bmatrix}\boldsymbol{y}\\1\end{bmatrix}^{\top}\boldsymbol{Q}_{\boldsymbol{s}}^{*}
+\begin{bmatrix}\boldsymbol{y}\\1\end{bmatrix}\leq0\right\}.
+\tag{16.6}
+$$
+
+![](images/40ae63b67a1fa9a8a5e5b10ff3efc51b63522a46465c5f4118da66ae5153cdef.jpg)
+图 16.3 检测物体的椭球表示。图中同时显示三维椭球投影到机器人相机坐标系的二维结果和检测边界框。
+
+其中，$\boldsymbol{Q}_{\boldsymbol{s}}^{*}$ 是 $\boldsymbol{Q}_{\boldsymbol{s}}$ 的伴随矩阵。对椭球，$\boldsymbol{Q}_{\boldsymbol{s}}$ 可逆，且 $\boldsymbol{Q}_{\boldsymbol{s}}^{*}=\operatorname{adj}(\boldsymbol{Q}_{\boldsymbol{s}})=\det(\boldsymbol{Q}_{\boldsymbol{s}})\boldsymbol{Q}_{\boldsymbol{s}}^{-1}$。由于式（16.6）中对偶二次曲面定义具有尺度不变性，实际可将其简化为 $\boldsymbol{Q}_{\boldsymbol{s}}^{-1}$。
+
+考虑位姿为 $\boldsymbol{q}$、尺度为 $\lambda$、形状为二次曲面 $\boldsymbol{Q}_{\boldsymbol{s}}$ 的物体路标 $\boldsymbol{\ell}$。物体表面可按下式缩放，并从局部物体坐标系变换到世界坐标系：
+
+$$
+\boldsymbol{Q}_{\boldsymbol{\ell}}^{*}\propto
+\boldsymbol{q}
+\begin{bmatrix}\lambda\boldsymbol{I}_3&\boldsymbol{0}\\\boldsymbol{0}^{\top}&1\end{bmatrix}
+\boldsymbol{Q}_{\boldsymbol{s}}^{*}
+\begin{bmatrix}\lambda\boldsymbol{I}_3&\boldsymbol{0}\\\boldsymbol{0}^{\top}&1\end{bmatrix}^{\top}
+\boldsymbol{q}^{\top}.\tag{16.7}
+$$
+
+将对偶二次曲面 $\boldsymbol{Q}_{\boldsymbol{\ell}}^{*}$ 从世界坐标系透视投影到位姿为 $\boldsymbol{T}\in\mathrm{SE}(3)$ 的相机图像平面，可以得到对偶圆锥曲线 $\boldsymbol{C}_{\boldsymbol{x}}^{*}\in\mathbb{R}^{3\times3}$：
+
+$$
+\boldsymbol{C}_{\boldsymbol{x}}^{*}\propto
+\frac{1}{\beta}\boldsymbol{P}\boldsymbol{T}^{-1}\boldsymbol{Q}_{\boldsymbol{\ell}}^{*}
+\boldsymbol{T}^{-\top}\boldsymbol{P}^{\top},\tag{16.8}
+$$
+
+其中，$\boldsymbol{P}=[\,\boldsymbol{I}_3\ \boldsymbol{0}\,]\in\mathbb{R}^{3\times4}$ 是去除最后一维坐标的投影矩阵，$\beta$ 表示相机深度尺度。下标 $\boldsymbol{x}$ 强调 $\boldsymbol{C}_{\boldsymbol{x}}^{*}$ 由状态变量 $\boldsymbol{x}=(\boldsymbol{T},\boldsymbol{\ell})$ 决定，其中包含相机位姿和物体路标。
+
+物体边界框检测 $\boldsymbol{z}=[\,u\ v\ w\ h\,]^{\top}\in\mathbb{R}^{4}$ 包含边界框左下角经相机内参逆矩阵归一化后的像素坐标 $(u,v)$，以及边界框宽和高 $(w,h)$。令椭圆中心为 $(c_u,c_v)=(u+w/2,v+h/2)\in\mathbb{R}^{2}$，则该边界框内接、轴对齐椭圆的对偶圆锥曲线为
+
+$$
+\boldsymbol{C}_{\boldsymbol{z}}^{*}\propto
+\begin{bmatrix}1&0&c_u\\0&1&c_v\\0&0&1\end{bmatrix}
+\begin{bmatrix}(w/2)^2&0&0\\0&(h/2)^2&0\\0&0&-1\end{bmatrix}
+\begin{bmatrix}1&0&c_u\\0&1&c_v\\0&0&1\end{bmatrix}^{\top}.\tag{16.9}
+$$
+
+因此，对于位姿为 $\boldsymbol{q}_i$、尺度为 $\lambda_i$、二次曲面形状为 $\boldsymbol{Q}_{\boldsymbol{s}_i}$ 的物体路标，以及由相机位姿 $\boldsymbol{T}_i$ 得到的边界框检测 $\boldsymbol{z}_j$，可以比较式（16.9）由边界框产生的圆锥曲线 $\boldsymbol{C}_{\boldsymbol{z}_j}^{*}$ 与式（16.8）由二次曲面投影产生的 $\boldsymbol{C}_{\boldsymbol{x}_i}^{*}$，得到残差：
+
+$$
+r_i(\boldsymbol{x}_i)=\left\|\boldsymbol{C}_{\boldsymbol{z}_j}^{*}-\boldsymbol{C}_{\boldsymbol{x}_i}^{*}\right\|_{\boldsymbol{\Sigma}_i}.\tag{16.10}
+$$
+
+为避免定义矩阵范数，并利用圆锥曲线由对称矩阵定义这一事实，可以将上述差异向量化。具体地，令 $\boldsymbol{b}_j=\operatorname{vech}(\boldsymbol{C}_{\boldsymbol{z}_j}^{*})$ 为对称矩阵 $\boldsymbol{C}_{\boldsymbol{z}_j}^{*}$ 的半向量化，并令 $\boldsymbol{v}(\boldsymbol{T}_i,\boldsymbol{\ell}_i)=\operatorname{vech}(\boldsymbol{T}_i^{-1}\boldsymbol{Q}_{\boldsymbol{\ell}_i}^{*}\boldsymbol{T}_i^{-\top})$。再令 $\boldsymbol{A}=\boldsymbol{D}(\boldsymbol{P}\otimes\boldsymbol{P})\boldsymbol{E}$，其中 $\otimes$ 为 Kronecker 积，$\boldsymbol{D}\in\mathbb{R}^{6\times9}$ 与 $\boldsymbol{E}\in\mathbb{R}^{16\times10}$ 满足 $\operatorname{vech}(\boldsymbol{Q})=\boldsymbol{D}\operatorname{vec}(\boldsymbol{Q})$ 及 $\operatorname{vec}(\boldsymbol{Q})=\boldsymbol{E}\operatorname{vech}(\boldsymbol{Q})$。于是式（16.10）可重写为
+
+$$
+r_i(\boldsymbol{x}_i)=\left\|\boldsymbol{b}_j-\frac{1}{\beta_i}\boldsymbol{A}\boldsymbol{v}(\boldsymbol{T}_i,\boldsymbol{\ell}_i)\right\|_{\boldsymbol{\Sigma}_i}.\tag{16.11}
+$$
+
+有关细节可参见 [952]，其他残差形式可参见 [805, 821]。图 16.4 给出 OrcVIO 算法 [995] 在真实数据上的物体 SLAM 示例；该算法将语义路标和椭球结合为物体形状表示。
+
+![](images/111345ee3619a211ccc7a83d45dc9f51105c36a612dc044faae506c792d6108c.jpg)
+图 16.4 含椅子和显示器的室内场景中的定位和物体建图。(a) 与 (b) 显示边界框和语义关键点检测；(c) 显示 OrcVIO [995] 得到的传感器估计轨迹（红色曲线）、几何路标（黑点）、语义路标（绿点）和物体椭球（椅子为蓝色，显示器为橙色）。
+
+#### 16.2.1.3 将物体形状表示为网格
+
+使用三角网格可获得表达能力更强的物体形状表示。设顶点集合为 $\mathcal{V}=\{\boldsymbol{s}_j\}_j$，其中 $\boldsymbol{s}_j\in\mathbb{R}^3$，面集合为 $\mathcal{F}\subset\mathcal{V}\times\mathcal{V}\times\mathcal{V}$。为了估计具有网格形状的物体路标参数，可以将网格渲染结果与通过物体检测和分割得到的相机图像分割掩膜 $\boldsymbol{z}_i\subset\mathbb{R}^2$ 关联 [444, 920, 1121]，如图 16.5 所示。
+
+要在 SLAM 中优化物体网格形状，必须定义可微的残差。关键难点在于利用可微渲染将网格投影并光栅化到图像平面。给定顶点 $\mathcal{V}$ 和面 $\mathcal{F}$，可定义光栅化函数 $\rho(\mathcal{V},\mathcal{F})$：将网格顶点投影到图像平面，若一个像素处存在多个面，则只绘制最前方的面 [733]。Kato 等人 [541] 和 Liu 等人 [680] 最早获得了光栅化函数 $\rho$ 相对于网格顶点的近似梯度；关于可微渲染的综述参见 [542]。
+
+对于位姿 $\boldsymbol{q}_i$、尺度 $\lambda_i$、网格形状 $(\mathcal{V},\mathcal{F})$ 的物体路标 $\boldsymbol{\ell}_i$，以及从机器人位姿 $\boldsymbol{T}_i$ 获得的分割掩膜 $\boldsymbol{z}_i$，可以使用网格图像投影与分割掩膜交并比的倒数定义残差：
+
+$$
+r_i(\boldsymbol{x}_i)=
+\frac{\rho(\{\boldsymbol{\pi}(\boldsymbol{q}_i^{-1}\boldsymbol{T}_i,\lambda_i\boldsymbol{s}_{i,j})\}_j,\mathcal{F})\cup\boldsymbol{z}_i}
+{\rho(\{\boldsymbol{\pi}(\boldsymbol{q}_i^{-1}\boldsymbol{T}_i,\lambda_i\boldsymbol{s}_{i,j})\}_j,\mathcal{F})\cap\boldsymbol{z}_i}.\tag{16.12}
+$$
+
+其中，$\boldsymbol{\pi}(\boldsymbol{q}_i^{-1}\boldsymbol{T}_i,\lambda_i\boldsymbol{s}_{i,j})$ 与式（16.3）相同，表示三维网格顶点到图像平面的透视投影；$\rho$ 是可微网格光栅化函数。与上述语义路标表示一样，网格顶点坐标 $\{\boldsymbol{s}_j\}_j$ 可以直接优化，也可以通过定义类别平均形状并优化形状变化主成分的变形系数间接优化。还可以使用其他残差，例如渲染物体掩膜与分割掩膜 $\boldsymbol{z}_i$ 之间的 $\ell_2$ 损失或二元交叉熵 [702]。
+
+![](images/0beb09c0bc69b221d8b0033e1f25c79e67353fb1da36d447bdca65126bab8ea6.jpg)
+![](images/3dbe6dc9720161cb6616593cf7aaee5b2320e7905283ab63c5ac2225152f5ee4.jpg)
+图 16.5 检测物体的网格形状表示。(a) 相机视图中以蓝色突出显示的检测物体边界框和分割掩膜；(b) 最小化分割掩膜与物体网格投影之间残差的结果。
+
+![](images/ce91b792e9a8df5bb7f6260193058049e2fb0e826d42feb9f240fd2bb457fd32.jpg)
+图 16.6 在 KITTI 里程计数据集 [373] 上使用可微分割掩膜 [323] 估计三维物体网格形状和位姿的定性结果。方法以边界框（绿色）、分割掩膜（洋红色）和语义关键点（多种颜色）为输入，利用式（16.12）的交并比残差优化物体位姿和网格形状。
+
+可微网格渲染已用于 [323] 中的物体 SLAM、[855] 中的人体姿态估计和 [702] 中的机器人姿态估计。图 16.6 给出 [323] 在真实 KITTI 数据集 [373] 上采用网格形状表示的物体 SLAM 示例。图 16.7 给出 [1161] 的类似示例，该方法从存储有符号距离值的体素网格的可变形形状模型（16.2）生成可微分割掩膜。
+
+![](images/09bef082ee3c7dfad6bd2db7429ce2322aa734fee84d296335daa56968bac20d.jpg)
+图 16.7 在 KITTI Stereo 2015 基准 [756] 上，使用由可变形有符号距离形状模型 [1161] 得到的可微分割掩膜，估计三维物体形状和位姿的定性结果。该方法输入具有分割掩膜的立体图像、初始物体位姿和学习得到的物体平均形状；将物体投影到图像后，通过轮廓对齐和光度一致性残差度量投影与分割掩膜的一致性，从而优化物体位姿和形状。
+
+#### 16.2.1.4 隐式物体形状表示
+
+上面讨论的语义路标、二次曲面和网格都是显式形状模型，因为它们直接表示物体表面几何。下面讨论隐式形状表示：它将物体建模为空间函数，该函数的某个等值集表示物体表面。常用的隐式形状表示包括占据函数 [759]、有符号距离函数（signed distance function，SDF）[847] 和 NeRF [1278]。
+
+设物体路标的形状为集合 $\mathcal{S}\subset\mathbb{R}^3$。集合 $\mathcal{S}$ 的占据函数 $f_{\mathcal{S}}(\boldsymbol{x})$ 是二值函数，用来指示点 $\boldsymbol{x}\in\mathbb{R}^3$ 是否位于 $\mathcal{S}$ 内：
+
+$$
+f_{\mathcal{S}}(\boldsymbol{x})=
+\begin{cases}
+-1,&\boldsymbol{x}\in\mathcal{S},\\
+1,&\boldsymbol{x}\notin\mathcal{S}.
+\end{cases}\tag{16.13}
+$$
+
+集合 $\mathcal{S}$ 的 SDF $d_{\mathcal{S}}(\boldsymbol{x})$ 是实值函数，度量点 $\boldsymbol{x}\in\mathbb{R}^3$ 到 $\mathcal{S}$ 边界的有符号距离：
+
+$$
+d_{\mathcal{S}}(\boldsymbol{x})=
+\begin{cases}
+-\inf_{\boldsymbol{y}\in\partial\mathcal{S}}\|\boldsymbol{x}-\boldsymbol{y}\|,&\boldsymbol{x}\in\mathcal{S},\\
+\inf_{\boldsymbol{y}\in\partial\mathcal{S}}\|\boldsymbol{x}-\boldsymbol{y}\|,&\boldsymbol{x}\notin\mathcal{S}.
+\end{cases}\tag{16.14}
+$$
+
+![](images/56180badb772312382a6a5b9b6b11c1b48de310798f61f85d8a91b5adbb88428.jpg)
+图 16.8 物体路标的 SDF。按定义，物体表面处距离为零；物体内部和外部的距离分别为负和正。
+
+从传感器测量重建物体形状的隐式模型，可以看作估计占据函数 $f_{\mathcal{S}}(\boldsymbol{x})$ 或 SDF $d_{\mathcal{S}}(\boldsymbol{x})$ 的回归问题。这里重点讨论 SDF 形状估计，占据模型也可采用类似方法。为近似 $d_{\mathcal{S}}(\boldsymbol{x})$，引入参数为 $\boldsymbol{\theta}$ 的神经网络 $d_{\boldsymbol{\theta}}(\boldsymbol{x},\boldsymbol{s})$，其中潜在特征向量 $\boldsymbol{s}\in\mathbb{R}^{d}$ 称为形状代码，用于捕获 $\mathcal{S}$ 的特定形状。换言之，$d_{\boldsymbol{\theta}}$ 是一个神经网络解码器，用来估计查询点 $\boldsymbol{x}$ 到具有形状代码 $\boldsymbol{s}$ 的物体表面的有符号距离。改变 $\boldsymbol{s}$ 可在同一个解码器下描述不同物体形状，因而适合类别级形状表示 [847, 996]。
+
+为估计物体路标 $\boldsymbol{\ell}_i$ 的 SDF，设 LiDAR 或深度相机等距离传感器从机器人位姿 $\boldsymbol{T}_i$ 提供数据 $\{\boldsymbol{y}_{i,j},z_{i,j}\}_j$，其中 $\boldsymbol{y}_{i,j}$ 是物体 $\boldsymbol{\ell}_i$ 表面附近的点测量，$z_{i,j}$ 是到物体表面的距离测量。对于位姿 $\boldsymbol{q}_i$、尺度 $\lambda_i$、形状代码 $\boldsymbol{s}_i$ 的物体路标，残差通过比较 SDF 预测与测得距离得到：
+
+$$
+r_i(\boldsymbol{x}_i)^2=\sum_j\left|z_{i,j}-d_{\boldsymbol{\theta}}\left(\lambda_i^{-1}\boldsymbol{q}_i\boldsymbol{T}_i^{-1}\boldsymbol{y}_{i,j},\boldsymbol{s}_i\right)\right|_{\sigma_i}^{2}.\tag{16.15}
+$$
+
+其中，$\lambda_i^{-1}\boldsymbol{q}_i\boldsymbol{T}_i^{-1}\boldsymbol{y}_{i,j}$ 先将点 $\boldsymbol{y}_{i,j}$ 从机器人坐标系变换到世界坐标系，再从世界坐标系变换到物体坐标系，最后乘以 $\lambda_i^{-1}$，从而得到规范物体坐标系中的查询点 [1152]。若 SDF 解码器已经训练完成，最小化式（16.15）的残差即可同时估计机器人位姿 $\boldsymbol{T}_i$，以及物体路标 $\boldsymbol{\ell}_i$ 的位姿 $\boldsymbol{q}_i$、尺度 $\lambda_i$ 和形状代码 $\boldsymbol{s}_i$。SDF 回归方法常加入其他残差，例如通过 Eikonal 方程将物体表面法向与 $d_{\boldsymbol{\theta}}$ 的梯度联系起来 [404]，或鼓励远离表面的点取正/负值 [834]。
+
+应区分训练阶段和测试阶段。训练阶段使用离线数据优化某个物体类别 SDF 解码器的参数 $\boldsymbol{\theta}$；测试阶段使用在线数据、预训练解码器，优化此前未见同类别物体实例的位姿 $\boldsymbol{q}_i$、尺度 $\lambda_i$ 和形状代码 $\boldsymbol{s}_i$。训练时通常假设传感器位姿 $\boldsymbol{T}_i$、路标位姿 $\boldsymbol{q}_i$ 和尺度 $\lambda_i$ 已知，针对 $\boldsymbol{\theta}$ 与 $\boldsymbol{s}_i$ 最小化式（16.15）。解码器参数 $\boldsymbol{\theta}$ 通常在整个物体类别内共享，而形状代码 $\boldsymbol{s}_i$ 对每个物体实例单独优化。测试时通常假设 $\boldsymbol{\theta}$ 已知，针对包含 $\boldsymbol{T}_i$、$\boldsymbol{q}_i$、$\lambda_i$ 和 $\boldsymbol{s}_i$ 的状态 $\boldsymbol{x}_i$ 最小化式（16.15）。图 16.9 显示 ELLIPSDF [996] 在真实 ScanNet 数据集 [238] 上结合粗略椭球形状和精细 SDF 形状的物体 SLAM 示例。
+
+![](images/c2beedbd0f25abbae948fbca5f1b35aa33ea7666a8adf5814534f0050d6b24f4.jpg)
+图 16.9 ELLIPSDF [996] 在 ScanNet 数据集 [238]（场景 0087）上进行三维物体位姿和隐式 SDF 形状重建的定性结果。图中左侧为场景 RGB 图像，右上为真值彩色点云重建，右下为由物体形状代码解码的 SDF 模型和优化后的 $\mathrm{SIM}(3)$ 位姿所重建的物体网格。
+
+### 16.2.2 稀疏度量--语义 SLAM 的混合求解器
+
+基于物体或稀疏度量--语义 SLAM 的表示，将语义物体类别等离散信息与物体位置、方向和形状等连续信息结合起来。因此，求解此类问题通常需要联合推理这些往往以复杂方式耦合的状态。例如，物体的语义类别可以提供其形状信息 [994]，反之亦然。离散变量也会以其他方式进入稀疏度量--语义 SLAM，例如关注物体具有离散对称性 [705]，或基于学习的物体检测与姿态估计前端给出多个离散位姿假设 [344]。与纯几何路标 SLAM 一样，数据关联（第 3 章）仍是开发稀疏度量--语义 SLAM 系统的关键挑战。
+
+离散状态使 SLAM 的实际求解难度显著上升。将问题写成优化问题时，度量--语义 SLAM 与纯度量 SLAM 一样具有非线性、非凸和高维特性，还具有组合性：必须在离散状态数目呈指数增长的状态空间中搜索。给定将物体检测和分类视为有噪传感器输出的模型，可以按最大后验（MAP）推断同时估计环境路标的潜在语义类别和几何：
+
+$$
+\widehat{X},\widehat{L},\widehat{D}=\operatorname*{arg\,max}_{X,L,D}p(X,L,D\mid Z).\tag{16.16}
+$$
+
+其中，$Z$ 是完整测量集（包括语义测量），$X$ 是机器人位姿集合，$L$ 是环境路标集合；路标通常将位置、方向、尺寸和形状等几何信息与来自已知固定类别集的离散语义标签结合。$D$ 是 $Z$ 中测量与 $L$ 中路标之间的关联集合。物体离散类别信息可以自然融入数据关联本已离散的推断问题：类别知识有助于在杂乱环境中将物体同其他物体区分开。该表述统一了语义类别离散模型、几何估计和数据关联；但除标准 SLAM 的非凸高维优化外，还需处理组合优化及学习感知模型的错误。
+
+通常，式（16.16）的 MAP 推断计算上不可解 [592, Section 13.1.1]。即使是机器人感知中的纯连续估计问题也往往是 NP-hard 的（见第 6 章）。不过，在拥有良好初始化时，平滑局部优化通常能以较低代价获得良好解。即便假定连续估计可以高效求解，离散变量仍使问题复杂：在最坏情况下，联合 MAP 全局估计要求对每一种离散状态赋值求解一个连续优化子问题，而离散状态空间随离散变量数目指数增长。因此，需要高效的近似解法。
+
+可将式（16.16）写成混合离散--连续因子图的分解形式。把连续变量记为 $\Theta$、离散变量记为 $D$，有
+
+$$
+p(\Theta,D\mid Z)\propto\prod_k\phi_k(\mathcal{V}_k),\qquad
+\mathcal{V}_k\triangleq\{v_i\in\mathcal{V}\mid(\phi_k,v_i)\in\mathcal{E}\}.\tag{16.17}
+$$
+
+每个因子 $\phi_k$ 对应测量似然 $p(z_k\mid\mathcal{V}_k)$ 或先验 $p(\mathcal{V}_k)$，$\mathcal{V}_k$ 是参与该因子的连续或离散变量集合。后验可分为三类因子：仅含离散变量的 $\phi_k(D_k)$，仅含连续变量的 $\phi_k(\Theta_k)$，以及离散--连续因子 $\phi_k(\Theta_k,D_k)$。由此，式（16.16）的 MAP 问题等价于最小化负对数后验：
+
+$$
+\Theta^{*},D^{*}=\operatorname*{arg\,max}_{\Theta,D}p(\Theta,D\mid Z)
+=\operatorname*{arg\,min}_{\Theta,D}\sum_k-\log\phi_k(\mathcal{V}_k)
+\triangleq\operatorname*{arg\,min}_{\Theta,D}\mathcal{L}(\Theta,D).\tag{16.18}
+$$
+
+许多混合估计问题可以表示为非线性最小二乘，从而可以用第 1 章的 iSAM2 [534] 等工具估计关注的连续状态。具体地，离散--连续因子可写为
+
+$$
+-\log\phi_k(\Theta_k,D_k)=\|\boldsymbol{r}_k(\Theta_k,D_k)\|_2^2,\qquad
+\Theta_k\subseteq\Theta,\ D_k\subseteq D,\tag{16.19}
+$$
+
+其中 $\boldsymbol{r}_k$ 对 $\Theta$ 通常非线性但一阶可微，上式允许差一个与 $\Theta,D$ 无关的常数；只含连续变量的因子也可作类似表示。
+
+这种表述可以利用因子图的条件独立结构实现高效局部推断。若固定任一离散状态赋值，则只剩连续变量，可如第 1 章那样采用平滑优化近似推断；反过来，若固定连续变量估计，则得到离散因子图优化，可用 max-product 变量消元获得全局最优。后者最坏情况下仍需探索指数数量的离散状态，但允许采用成熟的启发式近似策略。
+
+尤其是，将离散状态划分为在给定连续状态时条件独立、且相互不交的子集 $D_j\subseteq D$，则
+
+$$
+p(D\mid\Theta,Z)\propto\prod_jp(D_j\mid\Theta,Z),\tag{16.20}
+$$
+
+并且
+
+$$
+\max_Dp(D\mid\Theta,Z)\propto
+\prod_j\left[\max_{D_j}p(D_j\mid\Theta,Z)\right].\tag{16.21}
+$$
+
+这将“乘积的最大值”替换为可独立计算的“各最大值之积”。当离散状态分解为很小的子集（$|D_j|\ll|D|$）时，可以高效推断。点云配准（含离散数据关联变量）、鲁棒位姿图优化（含离群值剔除开关变量）和度量--语义 SLAM（含数据关联变量和离散物体类别）等许多机器人混合优化问题，都具有这种相对友好的分解 [276, 618]；另见第 3 章第 3.3.2 节。
+
+这一思想有多种用法。例如，DC-SAM [276] 采用交替最小化：固定初始迭代 $\Theta^{(i)}$ 后，依次求解
+
+$$
+D^{(i+1)}=\operatorname*{arg\,min}_{D}\mathcal{L}(\Theta^{(i)},D),\tag{16.22a}
+$$
+
+$$
+\Theta^{(i+1)}=\operatorname*{arg\,min}_{\Theta}\mathcal{L}(\Theta,D^{(i+1)}).\tag{16.22b}
+$$
+
+重复式（16.22a）和（16.22b），直至 $\mathcal{L}(\Theta,D)$ 的相对下降足够小或达到最大迭代次数。实践中无需将每个子问题求至最优：连续子问题可使用常规优化技术求解；还可将两阶段块坐标下降推广为针对更小变量组迭代，在每一步复杂度和总优化步数间权衡。
+
+Bowman 等人 [108] 对稀疏度量--语义 SLAM 使用相近策略，通过期望最大化（EM）联合优化：先固定机器人位姿和路标位置，计算数据关联概率和路标类别（E 步）；再固定数据关联概率和路标类别，以相应路标对应概率为测量加权，优化机器人位姿和路标位置（M 步）。该方法为物体赋予“软”关联，逐渐收敛到式（16.16）的局部最优解。E 步概率可由矩阵 permanent 精确恢复；通过近似 permanent，可更高效地近似 M 步所需的数据关联概率 [40]。
+
+多假设方法显式搜索 $D$ 的可能赋值来求解式（16.18），但状态空间规模随离散状态数目呈指数增长，因此需要启发式剪枝保持可计算性。MH-iSAM2 [479] 和 iMHS [519] 等通用方法已用于鲁棒位姿图优化、足式机器人的接触估计等混合估计问题，但尚未应用于稀疏度量--语义 SLAM。Bernreiter 等人 [74] 提出面向度量--语义建图和定位的多假设方法。
+
+另一种方法是将离散变量的组合推断改写为只对连续变量的优化。早期工作 [1061] 在 $K$ 类语义标注问题中优化语义标签概率，标签概率定义在 $(K-1)$ 维单位单纯形上。这与第 3 章离群值剔除策略类似，但扩展至多个标签。还有方法尝试将式（16.16）中所有离散状态边缘化，近似完整后验为混合分布；由于该后验一般非高斯，实际需使用近似方法，参见面向 SLAM 的非高斯求解器 [337, 491] 及度量--语义 SLAM 应用 [274, 41]。
+
+## 16.3 稠密度量--语义表示
+
+本节讨论将第 5 章地图表示扩展为包含语义信息的稠密度量--语义表示。第 16.3.1 节首先讨论使用语义信息的点和 surfel 地图；第 16.3.2 节说明如何以概率一致的方式将 OctoMap [478] 等体素地图扩展为语义表示；第 16.3.3 节讨论网格表示。与体素地图相比，网格通常更节省存储，并且在回环闭合时更容易变形。
+
+### 16.3.1 基于点和 surfel 的度量--语义 SLAM
+
+大规模稠密标注数据集 [68, 137, 69, 330] 使得直接在点云上学习语义分割 [768] 与全景分割 [767] 成为可能。这些模型提供逐点语义，可能还提供实例信息；因此，若干 LiDAR-SLAM 方法 [187, 652, 522] 直接利用这些信息构建度量--语义地图。正如本章前面所述，语义有助于识别动态物体、改进数据关联：可以在里程计对应搜索中利用语义 [652, 522]，也可以构建语义场景描述子以检测回环 [593, 522]。
+
+这类方法的关键挑战，是如何将相互冲突的逐帧 LiDAR 点云语义分割进行空间融合，形成统一地图。早期使用语义分割的稠密 LiDAR SLAM 方法 SuMa++ [187]，为每个 surfel 增加语义类别和语义置信度。Chen 等人 [187] 同时利用语义置信度和测量不确定性更新 surfel 置信度，使冲突的语义标签降低 surfel 的置信度。最终可滤除低置信度 surfel；这些 surfel 可能来自测量不确定性，也可能来自语义不确定性。
+
+将语义纳入 surfel 地图使系统能够处理冲突标签，并更有效地滤除动态物体。Chen 等人 [187] 表明，仅按语义移除所有潜在运动物体，效果劣于只根据地图与当前场景语义解释之间的冲突进行处理。其原因是城市环境中车辆普遍存在，仍可用于位姿估计；若简单移除所有潜在运动物体，会同时移除可用于 ICP 对齐的有价值地图信息。
+
+后续方法如 SA-LOAM [652] 和 SELVO [522] 仅匹配语义兼容特征 [1263]，将语义纳入位姿估计，也在回环确定时利用语义 [593]。Li 等人 [652] 在 LOAM [1269] 基础上，采用基于点的表示，在不同语义地图中存储表面型和角点型结构特征；回环时通过逐点语义分割生成的语义图匹配场景。Jiang 等人 [522] 同样利用匹配语义类别的对应关系，并扩展 Scan Context 描述子，使其在场景描述子匹配过程中考虑语义。图 16.10 展示了仅用立体相机图像获得的大规模语义标注点云地图；该方法 [193] 使用立体图像的稠密二维语义标签，结合直接稀疏视觉里程计前端和全局优化后端。
+
+![](images/5925cb1de6e0e06c793fad06dbe1e636a5e43b96388c8c0255ca988199ec4558.jpg)
+图 16.10 车辆队列利用 [193] 的方法生成的柏林大规模语义地图，覆盖 8 000 km 道路（左）。语义地图局部放大图显示精细三维重建细节（右）。图像来自 [193]（©2022 IEEE）。
+
+### 16.3.2 基于体素的度量--语义 SLAM
+
+利用体素的稠密环境模型已被广泛用作点云建图的替代方案 [97, 1064, 1124, 347]。设机器人导航环境为 $\mathcal{E}$。如第 5 章所述，体素地图 $m$ 通过互不重叠立方体网格划分 $\mathcal{E}$；每个体素存储占据、温度等环境属性，并假定该属性在相应三维物理空间内恒定。本节讨论如何在占据或距离信息之外，为体素表示增添语义信息。
+
+要将体素表示扩展为度量--语义地图，第一步是将语义纳入机器人观测。将 $\mathcal{E}$ 划分为不相交集合 $\mathcal{E}_k\subset\mathbb{R}^3$，每个集合对应语义类别 $k\in\mathcal{K}:=\{0,\ldots,K\}$；$\mathcal{E}_0$ 是自由空间，$k>0$ 的 $\mathcal{E}_k$ 表示建筑物、汽车和地形等不同物体类别。设机器人传感器沿射线集合 $\{\boldsymbol{\eta}_b\}$ 提供周边物体距离和语义类别信息，$b$ 是射线索引，$\|\boldsymbol{\eta}_b\|=r_{\max}$，其中 $r_{\max}$ 为最大测距范围。该集合只是 RGB-D 相机或 LiDAR 等测距传感器长度为 $r_{\max}$ 的射线向量集合。通过对相机 [766] 或 LiDAR [768] 测量进行语义分割，可为每条射线关联语义标注点测量。
+
+具体地，若机器人在时刻 $t$ 的方向为 $\boldsymbol{R}_t\in\mathrm{SO}(3)$、位置为 $\boldsymbol{p}_t\in\mathbb{R}^3$，则沿传感器射线 $\boldsymbol{R}_t\boldsymbol{\eta}_b+\boldsymbol{p}_t$ 的距离--类别观测定义为集合 $\boldsymbol{Z}_t=\{\boldsymbol{z}_{t,b}\}_b$，其中 $\boldsymbol{z}:=(r_{t,b},y_{t,b})\in\mathbb{R}_{\geq0}\times\mathcal{K}$。图 16.11 中，RGB 图像每个像素对应一条射线 $\boldsymbol{\eta}_b$，语义分割图和距离图中相应的值分别为类别 $y_{t,b}$ 和距离 $r_{t,b}$。基于体素的度量--语义建图目标，是根据流式距离--类别观测增量构建环境 $\mathcal{E}$ 的多类别地图 $m$。地图建模为单元 $i\in\mathcal{I}:=\{1,\ldots,N\}$ 的栅格，每个单元标记一个类别 $m_i\in\mathcal{K}$。
+
+![](images/f830049161a7af628d8e7a8db6cb566f806f11e0cce5ffd808fbed58c79f4786.jpg)
+图 16.11 距离--类别观测的生成过程。机器人配备 RGB-D 传感器，将其 RGB 测量输入语义分割算法；给定相机内参后，结合语义分割图和深度图形成带语义标注的三维点云。
+
+令 $p(\boldsymbol{Z}_t\mid m,\boldsymbol{R}_t,\boldsymbol{p}_t)$ 为描述传感器观测噪声的概率密度函数。利用该观测模型，可通过贝叶斯更新将测量融合到概率地图。令 $p_t(m):=p(m\mid\boldsymbol{Z}_{1:t},\boldsymbol{R}_{1:t},\boldsymbol{p}_{1:t})$ 为给定时刻 $t$ 前机器人轨迹和观测的地图概率质量函数。由位姿 $(\boldsymbol{R}_{t+1},\boldsymbol{p}_{t+1})$ 获得新观测 $\boldsymbol{Z}_{t+1}$ 后，更新为
+
+$$
+p_{t+1}(m)\propto p(\boldsymbol{Z}_{t+1}\mid m,\boldsymbol{R}_{t+1},\boldsymbol{p}_{t+1})p_t(m).\tag{16.23}
+$$
+
+后续为简洁起见省略地图分布和观测模型对机器人位姿的依赖。Asgharivaskasi 和 Atanasov [37] 通过将对数几率占据建图算法 [1088, Ch. 9] 推广到多类别地图，提出在线基于体素的语义建图技术。每个地图单元 $m_i$ 存储 $\mathcal{K}$ 中物体类别的概率。为保证模型复杂度随地图大小 $N$ 线性增长，维护按地图单元分解的概率质量函数：
+
+$$
+p_t(m)=\prod_{i=1}^{N}p_t(m_i).
+$$
+
+单个单元 PMF $p_t(m_i)$ 的多类别对数几率是定义在语义类别 $\mathcal{K}$ 上的向量，表示相对似然的对数比：
+
+$$
+\boldsymbol{h}_{t,i}:=
+\left[\log\frac{p_t(m_i=0)}{p_t(m_i=0)}\ \cdots\
+\log\frac{p_t(m_i=K)}{p_t(m_i=0)}\right]^{\top}\in\mathbb{R}^{K+1}.
+$$
+
+这里以自由类别似然 $p_t(m_i=0)$ 为枢轴。给定对数几率向量 $\boldsymbol{h}_{t,i}$，可以用 softmax 函数 $\boldsymbol{\sigma}:\mathbb{R}^{K+1}\to\mathbb{R}^{K+1}$ 恢复单元 $m_i$ 的 PMF：
+
+$$
+p_t(m_i=k)=\sigma_{k+1}(\boldsymbol{h}_{t,i})
+=\frac{\boldsymbol{e}_{k+1}^{\top}\exp(\boldsymbol{h}_{t,i})}
+\ {\boldsymbol{1}^{\top}\exp(\boldsymbol{h}_{t,i})}.
+$$
+
+在新的测量集合 $\boldsymbol{Z}_{t+1}$ 上评估距离--类别观测模型，可将式（16.23）的贝叶斯更新写为
+
+$$
+\boldsymbol{h}_{t+1,i}=\boldsymbol{h}_{t,i}+\sum_{\boldsymbol{z}\in\boldsymbol{Z}_{t+1}}\boldsymbol{l}_i(\boldsymbol{z}),\tag{16.24}
+$$
+
+其中，$\boldsymbol{l}_i(\boldsymbol{z})$ 是观测模型对数几率：
+
+$$
+\boldsymbol{l}_i(\boldsymbol{z}):=
+\left[\log\frac{p(\boldsymbol{z}\mid m_i=0)}{p(\boldsymbol{z}\mid m_i=0)}
+\ \cdots\
+\log\frac{p(\boldsymbol{z}\mid m_i=K)}{p(\boldsymbol{z}\mid m_i=0)}\right]^{\top}.\tag{16.25}
+$$
+
+要完整定义式（16.24），还需要具体观测模型。传感器射线会一直传播，直至撞到类别 $\mathcal{K}\setminus\{0\}$ 的障碍物或到达 $r_{\max}$。从位置 $\boldsymbol{p}$、方向 $\boldsymbol{R}$ 获得的带标签距离测量 $\boldsymbol{z}=(r,y)$ 表明：若测量终点 $\boldsymbol{p}+(r/r_{\max})\boldsymbol{R}\boldsymbol{\eta}$ 落在单元 $m_i$ 中，则 $m_i$ 被观测为占据；若 $m_i$ 在射线上但不含终点，则观测为自由；若射线不与 $m_i$ 相交，则不提供占据信息。因此，观测模型必须反映这些性质，可人工调节 [37] 或从数据学习 [1165]。例如，[37] 将式（16.25）的观测模型对数几率向量参数化为沿射线的分段常数函数：
+
+$$
+\boldsymbol{l}_i((r,y)):=
+\begin{cases}
+\boldsymbol{\phi}^{+}+\boldsymbol{E}_{y+1}\boldsymbol{\psi}^{+},&r\ \text{表示}\ m_i\ \text{被占据},\\
+\boldsymbol{\phi}^{-},&r\ \text{表示}\ m_i\ \text{为空闲},\\
+\boldsymbol{0},&\text{其他情况},
+\end{cases}\tag{16.26}
+$$
+
+其中 $\boldsymbol{E}_k:=\boldsymbol{e}_k\boldsymbol{e}_k^{\top}$，$\boldsymbol{\psi}^{+},\boldsymbol{\phi}^{-},\boldsymbol{\phi}^{+}\in\mathbb{R}^{K+1}$ 是参数向量，其首元素为零，以确保 $\boldsymbol{l}_i(\boldsymbol{z})$ 是合法语义对数几率向量。图 16.12 展示了该观测模型下的贝叶斯多类别建图。
+
+![](images/f954e308f1bf336a3855a2a551f2eef8473ad599e6e0e766521eab4a09c9839d.jpg)
+图 16.12 使用距离--类别传感器测量进行贝叶斯多类别建图的示意，类别为 $\mathcal{K}=\{\text{free},\text{blue},\text{red}\}$。左上显示时刻 $t$ 沿观测射线每个单元的语义对数几率向量，虚线为红色射线；其对应基于对数几率的最大似然地图。距离--类别观测 $\boldsymbol{z}_{t+1}$ 在入射点给出 7 m 距离及“red”分类。下方显示时刻 $t+1$ 更新后的对数几率和各单元最大似然类别。
+
+使用规则栅格离散化表示 $\mathcal{E}$ 具有高昂的存储和计算需求。真实环境中大量连续区域为空，因而自适应离散化更有效。Hornung 等人 [478] 提出的 OctoMap 使用八叉树数据结构合并具有相同占据概率的体素，从而提高存储效率。八叉树每个节点表示部分物理环境，每个节点有 0 个或 8 个子节点；8 个子节点对应欧氏三维坐标系的 8 个卦限，共同构成父节点空间的八叉划分。没有子节点的节点称为叶节点，提供八叉树地图的最高分辨率可视化。
+
+文献 [37] 通过引入多类别八叉树，将 OctoMap 的概率三维建图扩展为度量--语义表示。多类别八叉树的每个节点以语义对数几率向量 $\boldsymbol{h}_{i,t}$ 形式，存储物体类别集 $\mathcal{K}$ 上的类别概率分布。要注册新观测，先在八叉树上执行射线投射 [427, 16] 找到被观测的叶节点。若观测需要更新某个叶节点，则将其递归展开到最小分辨率，并按式（16.24）更新后代节点的语义对数几率。
+
+为了压缩八叉树，还须定义从子节点向父节点融合信息的规则。不同应用可采用不同策略：保守做法是把占据概率最高子节点的语义对数几率赋给父节点；也可以将子节点对数几率向量的平均值赋给父节点，这等价于原概率空间中的贝叶斯信息融合。八叉树能够将相似单元（叶节点）合并为较大单元（内部节点），这一过程称为剪枝。每次将观测融合进地图后，自底向上检查节点的剪枝机会；若内部节点的所有子节点均为叶节点且语义对数几率相同，则删除子节点并将内部节点变成具有相同语义对数几率的叶节点。这样会将大多数自由单元压缩为少量大单元；占据单元通常不易剪枝，因为传感器只观测到其表面，内部仍是未知区域。
+
+![](images/9dbdc87c02e6b7ea3388a2a56d9b142ac77cbb87f6661f2ab88a30790566c0e7.jpg)
+图 16.13 多类别八叉树建图示例。左上为搭载距离--类别传感器的机器人建图环境；右上为生成的多类别八叉树地图，各类别以不同颜色表示（自由类别透明）；下方为地图局部对应的八叉树结构，圆形和方形节点分别表示父节点和叶节点。每个叶节点要么处于八叉树最小分辨率，要么包含语义对数几率向量相同的子节点。
+
+![](images/9c0ebede5c0dbfd68a0f22ecda6e9eb8e472e26091db6186443b2e721ca05f33.jpg)
+图 16.14 多类别八叉树地图更新。$t=t_1$ 到 $t=t_2$ 之间环境发生变化，从而触发地图更新。通过射线投射确定青色高亮体素需要更新，八叉树中对应节点被递归展开，并依据式（16.24）更新；同时检查各父节点子节点的剪枝机会。剪枝生成更少但物理尺寸更大的八叉树节点，如 $t=t_2$ 地图中的青色立方体。
+
+为实现实时性能，多类别八叉树还需要额外设计。由于传感器噪声，同一类别（例如自由或被同一障碍物占据）的单元不太可能得到完全相同的对数几率。可以为语义对数几率各元素设定上下限，使单元在数值达到限值后进入稳定状态；稳定单元更可能共享相同多类别概率分布，因而更容易剪枝。阈值会在 $p_t(m_i=k)=1$ 附近造成信息损失，可通过上下限控制。多类别地图更新的空间和计算复杂度随类别标签数 $K$ 线性增长，而 $K$ 增大时剪枝概率会指数下降。因此，可以仅存储最可能的 $\bar{K}$ 个类别标签，把其余标签汇入一个“其他”变量，从而鼓励更多剪枝并显著降低多类别较多时的更新计算量。
+
+多个机器人可以协同构建多类别八叉树地图。Riemannian Optimization for Active Mapping（ROAM）[38] 在图上构造优化问题：节点变量表示不同机器人的八叉树地图，共识约束要求机器人就局部地图达成一致。ROAM 基于分布式黎曼优化，只依赖一跳通信即可实现共识并给出最优性保证。图 16.15 展示了 ROAM [38] 在真实数据上的多类别八叉树建图结果。
+
+![](images/b41cb9cb43cc5b1a838a6ab1cadab1d48bc051408141bc1593ebf73bed014166.jpg)
+图 16.15 真实 SLAM 实验的定性结果：两架四旋翼机器人使用 ROAM 算法 [38] 构建多类别八叉树地图。左、右分别为两台机器人机载 RGB-D 相机获得的 RGB 图像和语义分割图，中间为生成的多类别八叉树地图。
+
+### 16.3.3 基于网格的度量--语义 SLAM
+
+体素地图虽然能有效地随时间概率融合信息，但有两个缺点：第一，存储代价较高，尽管可通过八叉树部分缓解；第二，难以随回环闭合编辑。回环闭合会使机器人轨迹和相应地图估计发生大变形，体素地图对此更新代价很高，通常需要将过去观测反积分后再重新积分 [237]。网格表示可以同时回避这两项问题。网格由多边形（通常是三角形）组成，存储复杂度随所表示场景的复杂度而变化。常见做法是先建立体素表示，再用 marching cubes 等标准算法计算网格。更高级的方法 [943] 只在机器人周围的空间窗口建立体素地图，并在体素离开活动窗口时增量转换为网格。
+
+更重要的是，网格表示可以在回环闭合时高效变形，因此比体素反积分与重积分更高效地校正地图。这里回顾 Pose-Graph and Mesh Optimization（PGMO）[943]。PGMO 基于嵌入式形变图概念，该概念最初用于计算机图形学中的形状操作 [1049]。形变图由对原网格下采样得到的控制节点组成，每个控制节点附带局部坐标系；通过求解保持图边局部刚性的优化问题使整个图变形。计算出控制节点的形变后，再用控制节点的新配置插值回原网格。
+
+对稠密三维度量--语义 SLAM，可由机器人位姿图和稠密网格的下采样版本创建形变图。形变图的位姿顶点就是机器人位姿图节点，变换为 $\boldsymbol{X}_i=[\boldsymbol{R}_i^X,\boldsymbol{t}_i^X]$，边连接关系继承位姿图。形变图的网格顶点来自下采样网格，网格顶点 $k$ 的变换为 $\boldsymbol{M}_k=[\boldsymbol{R}_k^M,\boldsymbol{t}_k^M]$，边连接关系继承简化网格。若网格顶点 $k$ 对应传感器在位姿顶点 $i$ 处可见，则在二者间连接一条边。
+
+![](images/35ea109ff7094c7a8bd202eddfecb1cee69a61abfd813829fdf6f3624165cf5d.jpg)
+![](images/28022356cb3e9da73b20f5fdeeada14b8db8412d9267746403299dc324995552.jpg)
+![](images/975690a3a4773d3dfa7024d9e590a4d094ac3df0cab02299cca53eb77547d8d7.jpg)
+![](images/128636fdb0bc71bbded112391f87a22c575ffc5427661539370bfac9939e805f.jpg)
+图 16.16 PGMO 形变。(a) 未变形位姿图和网格；(b) 创建形变图，位姿顶点为红色，网格顶点为紫色，绿色边表示简化网格的连接关系，黄色边按传感器可见性连接位姿和网格顶点；(c) 回环闭合触发位姿图和网格优化，依据结果更新 $\boldsymbol{X}_i$ 和 $\boldsymbol{M}_i$ 并使稠密网格变形；(d) 得到的变形网格和位姿图。
+
+在未变形状态中，$\boldsymbol{X}_i$ 是节点 $i$ 未优化的位姿，$\boldsymbol{R}_k^M=\boldsymbol{I}_3$，$\boldsymbol{t}_k^M=\boldsymbol{g}_k$，其中 $\boldsymbol{g}_k$ 是顶点 $k$ 原始世界坐标位置。直观地说，$\boldsymbol{R}_k^M$ 表示以顶点 $k$ 为中心的局部旋转，$\boldsymbol{t}_k^M-\boldsymbol{g}_k$ 表示局部平移。检测到回环等触发形变后，优化问题为
+
+$$
+\begin{aligned}
+\min_{\boldsymbol{X}_{1:n},\boldsymbol{M}_{1:m}\in\mathrm{SE}(3)}
+&\sum_{\boldsymbol{Z}_{ij}}\|\boldsymbol{X}_i\boldsymbol{Z}_{ij}-\boldsymbol{X}_j\|_{\boldsymbol{\Omega}_{ij}}^2\\
+&+\sum_{k=0}^{m}\sum_{l\in\mathcal{N}^{M}(k)}
+\|\boldsymbol{R}_k^M(\boldsymbol{g}_l-\boldsymbol{g}_k)+\boldsymbol{t}_k^M-\boldsymbol{t}_l^M\|_{\boldsymbol{\Omega}_{kl}}^2\\
+&+\sum_{i=0}^{n}\sum_{l\in\mathcal{N}^{M}(i)}
+\|\boldsymbol{R}_i^X\tilde{\boldsymbol{g}}_{il}+\boldsymbol{t}_i^X-\boldsymbol{t}_l^M\|_{\boldsymbol{\Omega}_{il}}^2 .
+\end{aligned}\tag{16.27}
+$$
+
+这里 $\mathcal{N}^M(i)$ 是形变图中顶点 $i$ 的相邻网格顶点，$\boldsymbol{g}_i$ 是形变图网格顶点的初始位置，$\tilde{\boldsymbol{g}}_{il}=\tilde{\boldsymbol{R}}_i^{\top}(\boldsymbol{g}_l-\boldsymbol{g}_i)$ 是顶点 $l$ 在节点 $i$ 里程计位姿局部坐标系中的未变形位置。式（16.27）第一项是通用 PGO，第二项通过惩罚相连网格顶点间的变形保持局部刚性，第三项保持位姿顶点和网格顶点间的局部刚性。矩阵范数为平方加权 Frobenius 范数：
+
+$$
+\|\boldsymbol{A}\|_{\boldsymbol{\Omega}}^2=\operatorname{tr}(\boldsymbol{A}\boldsymbol{\Omega}\boldsymbol{A}^{\top}),\qquad
+\boldsymbol{\Omega}=\begin{bmatrix}\omega_R\boldsymbol{I}_3&\boldsymbol{0}\\\boldsymbol{0}&\omega_t\end{bmatrix},\tag{16.28}
+$$
+
+其中 $\omega_R,\omega_t\geq0$；对向量，$\|\boldsymbol{v}\|_{\boldsymbol{\Omega}}^2=\boldsymbol{v}^{\top}\boldsymbol{\Omega}\boldsymbol{v}$ 是通常的平方 Mahalanobis 范数。依照 [943]，定义
+
+$$
+\boldsymbol{G}_{ij}=\begin{bmatrix}\boldsymbol{I}_3&\boldsymbol{g}_j-\boldsymbol{g}_i\\\boldsymbol{0}&1\end{bmatrix},\qquad
+\overline{\boldsymbol{G}}_{ij}=\begin{bmatrix}\boldsymbol{I}_3&\tilde{\boldsymbol{g}}_{il}\\\boldsymbol{0}&1\end{bmatrix},\tag{16.29}
+$$
+
+便可把问题写为
+
+$$
+\min_{\boldsymbol{X}_{1:n},\boldsymbol{M}_{1:m}\in\mathrm{SE}(3)}
+\sum_{\boldsymbol{Z}_{ij}\in\mathcal{Z}}\|\boldsymbol{X}_i\boldsymbol{Z}_{ij}-\boldsymbol{X}_j\|_{\boldsymbol{\Omega}_{\boldsymbol{Z}_{ij}}}^{2}
+{}+\sum_{\boldsymbol{G}_{ij}\in\mathcal{G}}\|\boldsymbol{M}_i\boldsymbol{G}_{ij}-\boldsymbol{M}_j\|_{\boldsymbol{\Omega}_{\boldsymbol{G}_{ij}}}^{2}
+{}+\sum_{\overline{\boldsymbol{G}}_{ij}\in\overline{\mathcal{G}}}\|\boldsymbol{X}_i\overline{\boldsymbol{G}}_{ij}-\boldsymbol{M}_j\|_{\boldsymbol{\Omega}_{\overline{\boldsymbol{G}}_{ij}}}^{2}.\tag{16.30}
+$$
+
+$\mathcal{Z}$ 是位姿图边集合（图 16.16 中红、蓝边），$\mathcal{G}$ 是简化网格边集合（绿边），$\overline{\mathcal{G}}$ 是连接位姿顶点与网格顶点的边集合（黄边）。第二、三项只优化平移，因此 $\boldsymbol{\Omega}_{\boldsymbol{G}_{ij}}$ 与 $\boldsymbol{\Omega}_{\overline{\boldsymbol{G}}_{ij}}$ 的旋转部分为零。进一步将位姿或网格顶点 $i$ 的变换统记为 $\boldsymbol{T}_i$，其边变换统记为 $\boldsymbol{E}_{ij}$，便得到经典 PGO：
+
+$$
+\min_{\boldsymbol{T}_{1:n+m}\in\mathrm{SE}(3)}
+\sum_{\boldsymbol{E}_{ij}}\|\boldsymbol{T}_i\boldsymbol{E}_{ij}-\boldsymbol{T}_j\|_{\boldsymbol{\Omega}_{ij}}^{2}.\tag{16.31}
+$$
+
+优化后，利用形变图中距离最近的 $m$ 个控制节点仿射变换更新每个网格顶点：
+
+$$
+\tilde{\boldsymbol{v}}_i=\sum_{j=1}^{m}w_j(\boldsymbol{v}_i)
+[\boldsymbol{R}_j^M(\boldsymbol{v}_i-\boldsymbol{g}_j)+\boldsymbol{t}_j^M],\tag{16.32}
+$$
+
+其中 $\boldsymbol{v}_i$ 是原位置，$\tilde{\boldsymbol{v}}_i$ 是第 $i$ 个网格顶点变形后的位置。控制节点权重为
+
+$$
+w_j(\boldsymbol{v}_i)=\frac{\bar{w}_j(\boldsymbol{v}_i)}{\sum_{k=1}^{m}\bar{w}_k(\boldsymbol{v}_i)},\qquad
+\bar{w}_j(\boldsymbol{v}_i)=\left(1-\frac{\|\boldsymbol{v}_i-\boldsymbol{g}_j\|}{d_{\max}}\right)^2,\tag{16.33}
+$$
+
+其中 $d_{\max}$ 是该网格顶点到 $m$ 个控制节点中最远节点的距离。
+
+## 16.4 分层度量--语义表示与三维场景图
+
+第 16.2 节和第 16.3 节分别讨论了将语义信息编码到机器人地图中的稀疏表示和稠密表示。二者各有优势：稀疏表示便于操作物体，稠密体积表示则擅长编码自由空间和可通行性。本节介绍将稠密与稀疏地图组合为统一模型的分层表示。首先讨论空间表示和语义类别的选择如何影响机器人所需内存；随后说明组织信息的层次结构能够节省内存和计算；最后以三维场景图为例，介绍一种度量--语义分层地图。
+
+### 16.4.1 分层表示与符号落地
+
+先回顾度量--语义建图与符号落地问题之间的关系 [431]。到目前为止，本章主要考虑由学习模型从相机图像或 LiDAR 扫描提供的封闭集语义类别。这些特征是符号的落地，因为它们把对人类具有特定含义的概念<sup>1</sup>关联到机器人传感器数据。人类发出的“去拿椅子”等高层指令本质上涉及符号；机器人要正确执行，就必须将“椅子”这一符号落地到其所在的物理位置，这就是符号落地问题。
+
+原则上，可以设计感知系统，直接在带位姿传感器数据中落地符号。例如，相机机器人可将图像像素映射为“椅子”“家具”“厨房”和“公寓”等符号<sup>2</sup>。但直接在传感器数据中落地符号不可扩展：图像等数据以高频采集，存储代价大，不适合长期运行。因此需要中间（或亚符号）表示，将原始传感器数据压缩为更紧凑的格式，用于落地符号。本章前述内容关注的正是几何亚符号表示，以及将语义信息落地到这些表示的算法。
+
+**层次结构与内存。** 在亚符号表示中落地符号的最直接策略，是对场景中关注的 $L$ 个符号，在每个体素中存储其是否存在。分辨率为 $\delta$、体积为 $V$ 的体素网格需要
+
+$$
+m=O\left(L\cdot\frac{V}{\delta^3}\right).\tag{16.34}
+$$
+
+图 16.17 左图展示了该策略：每个体素最多存储 $L$ 个语义属性。室内环境中关注的符号通常具有层次结构，例如物体、房间和楼层。与其在每个体素中稠密且冗余地存储符号，不如根据层次组织表示：构造一个图，节点表示物体、房间或建筑，边表示包含关系；建筑节点的子节点是其中的房间，房间节点的子节点是其中的物体。此时内存需求降为
+
+$$
+m=O\left(\frac{V}{\delta^3}+N_{\mathrm{objects}}+N_{\mathrm{rooms}}+\cdots+N_{\mathrm{buildings}}\right).\tag{16.35}
+$$
+
+该压缩是无损的，原始稠密体素网格可以从分层表示中恢复 [496]。若采用八叉树或自由空间近似聚类等更节省内存的亚符号表示，需求还可降低为
+
+$$
+m=O\left(N_{\mathrm{sub\text{-}sym}}+N_{\mathrm{objects}}+N_{\mathrm{rooms}}+\cdots+N_{\mathrm{buildings}}\right),\tag{16.36}
+$$
+
+其中 $N_{\mathrm{sub\text{-}sym}}$ 通常远小于 $V/\delta^3$。这种压缩通常有损：即便符号部分可恢复，原始体素亚符号表示也未必能完全恢复 [496]。图 16.17 右图展示了将自由空间聚类为地点拓扑图的例子。
+
+![](images/60e8be418ef923b28bb87ff52afca14985758d9d7a7e0d28908d461df2e7b30c.jpg)
+图 16.17 不同亚符号表示中所关注符号的落地。(a) 每个体素存储语义属性；(b) 按物体、房间和建筑层次组织；(c) 使用更紧凑的亚符号表示，并将自由空间聚类为地点。
+
+**层次结构与推断。** 分层表示除节省内存外，还具有有利于计算的性质。定义图 $\mathcal{G}=(\mathcal{V},\mathcal{E})$ 为分层图，若顶点可划分为 $l$ 层 $\mathcal{V}=\bigcup_{i\in1:l}\mathcal{V}_i$，并满足：
+
+1. **单父节点：** 对于层 $\mathcal{V}_i$ 的子节点 $v$ 和层 $\mathcal{V}_{i+1}$ 的父节点 $u$，若 $(v,u)\in\mathcal{E}$，则不存在另一条 $(v,u')$ 且 $u'\in\mathcal{V}_{i+1}$ 的边。
+2. **局部性：** 层间边只能连接相邻层；若 $u\in\mathcal{V}_i$、$v\in\mathcal{V}_j$ 且 $|i-j|>1$，则不存在 $(u,v)\in\mathcal{E}$。
+3. **子节点不相交：** 对任意同层节点 $u,v\in\mathcal{V}_{i+1}$，其子节点集合 $\mathcal{C}(u)$ 和 $\mathcal{C}(v)$ 不相交，即不存在连接二者子节点的边。
+
+节点 $s\in\mathcal{V}_{i+1}$ 的子节点集合定义为 $\mathcal{C}(s)=\{t:t\in\mathcal{V}_i\land(s,t)\in\mathcal{E}\}$。该定义意味着，图中任意节点的后代树都与同层其他节点的后代树不相交。Hughes 等人 [496] 表明，这一性质允许存在分层树分解，并给出任意分层图树宽的上界：
+
+$$
+\max_{v\in\mathcal{V}}\operatorname{tw}[\mathcal{G}[\mathcal{C}(v)]]+1.\tag{16.37}
+$$
+
+其中 $\mathcal{G}[\mathcal{C}(v)]$ 是由 $v$ 的子节点形成的子图，$\operatorname{tw}[\mathcal{G}]$ 是图树宽。树宽影响图上推断的计算复杂度，也是许多图问题的复杂度度量 [93, 247, 320, 403]。图模型推断一般为 NP-hard [230]，但若树宽较小，则可以采用高效的多项式时间推断算法。式（16.37）因此表明，只要后代子图的树宽保持较小，便能在分层图上高效推断；实践中，三维场景图这一大类分层图通常满足该条件 [496]。
+
+分层地图并非新概念，机器人学自诞生以来就一直使用分层地图 [612, 172, 1090]。早期工作关注二维地图，研究用分层地图弥合度量表示和拓扑表示之间的差异 [956, 355, 1266, 213, 65]；这些工作早于“深度学习革命”，无法利用如今深度神经网络提供的丰富语义。
+
+### 16.4.2 三维场景图
+
+不同研究社区对三维场景图的定义略有差异。Armeni 等人 [36] 首次将三维场景图作为分层地图表示，引入包含物体和房间的语义与空间信息。Kim 等人 [577] 独立提出由物体及其关系组成的三维场景图，扩展了二维场景图。Wald 等人 [1141] 从稠密场景重建中构造类似的物体关系三维场景图，并最终将其纳入在线 SLAM 系统 [1198]，为 [577] 增加隐式层次。Rosinol 等人 [943] 提出同时包含动态实体（如人）、物体和自由空间（称为地点）的三维场景图。Hughes 等人 [496] 构建了首个在线生成完整分层场景图的系统，其中包含物体、地点和房间，并能够校正三维场景图使其全局一致。图 16.18 展示了 [496] 生成的三维场景图示例。
+
+形式上，三维场景图是图 $\mathcal{G}=(\mathcal{V},\mathcal{E})$，每个节点 $v\in\mathcal{V}$ 关联节点特征或属性 $\boldsymbol{x}_v$，每条边 $e\in\mathcal{E}$ 关联边特征或属性 $\boldsymbol{x}_e$。每个三维场景图都将符号落地到空间，因此节点特征假定包含位置信息<sup>3</sup>。通常可将场景图视为分层图，将 $\mathcal{V}$ 划分为 $l$ 层；物体及其关系的三维场景图 [577, 1141, 1198] 可作为更复杂分层表示中的一层。
+
+![](images/e0c56c82f6d9033f50f48bd6c8f714b4b13f559f697b060245ac52e42ac82963.jpg)
+图 16.18 [496] 生成的三维场景图示例。
+
+三维场景图通常从稠密度量表示 [1141, 1198] 或度量--语义表示 [36, 943, 496] 通过聚类或分割构造物体，形成物体符号的稀疏、压缩落地，其计算通常比底层稠密表示更易处理。第 496 篇工作中的地点或房间层也是自由空间的稀疏表示。层间边（不同层节点之间的边）常与房间和地点层结合使用，以编码空间包含关系，例如房间与某个物体之间的边表示物体位于房间内，从而支持分层图匹配和高效推断 [496]。边还可以编码“位于……之上”或“邻近”等空间关系 [1198]，且关系可能有方向性。左/右、前/后等二维场景图常用关系依赖视点，在三维场景图中通常不够有意义。
+
+**因子图与三维场景图。** 回环闭合后，高效校正地图表示非常重要。Hughes 等人 [496] 扩展第 16.3.3 节的 PGMO，同时优化三维场景图与底层稠密表示：除位姿图和网格控制点外，将地点层加入式（16.27）并联合优化，为网格控制节点之间的因子提供结构先验。优化结果用于插值和细化其他层，而不必从头重建。另一类方法 [61] 在三维场景图不同层之间加入额外因子，从而直接优化整个场景图以校正漂移，无需后续细化；但此时优化问题不再能写成 PGO。
+
+## 16.5 延伸阅读与近期趋势
+
+**多模态隐式地图、任务规划与行动模型。** 一个新兴趋势是将度量--语义建图推广到几何、光度和语义表示之外，编码大型视觉--语言模型（VLM）的特征。近期方法编码高维、语言落地的特征，使机器人能够推理物体可供性和机器人任务。嵌入 CLIP 特征 [899] 等语言特征，可以用开放词汇定位物体，为构建更灵活的机器人系统开辟新路径。为 NeRF 和 Gaussian Splatting 等神经场景表示加入语言嵌入也受到广泛关注 [555]。例如，Online Language Splatting [543] 将 CLIP 特征融合进 Gaussian splat，实时构建稠密、具有语言感知能力的场景表示，支持下游查询和落地任务；相关方法将在下一章讨论。
+
+将语义地图中的信息转化为行动 [829, 617] 是另一项近期发展。ATLAS Navigator [829] 主动构建嵌入语言特征的空间地图，以支持导航到自然语言描述的物体目标。M3 [1313] 引入持久化三维空间多模态记忆，存储与 VLM 对齐的特征，并支持面向长时域任务的基于检索的推理。LUMOS [798] 将世界建模与语言条件模仿学习结合，使机器人能够在 VLM 落地的潜在空间中模拟、想象和规划。GNFactor [1265] 则通过编码可指导控制的丰富感知先验，使可泛化神经特征场连接多任务机器人学习与现实泛化。这些工作体现了向可行动表示的转变：空间记忆、语言和多模态感知紧密耦合，以支持任务规划和技能执行。
+
+然而，这类地图通常作为后处理步骤构建，如何增量构建此类表示仍是开放挑战 [543, 657]。从多个变化视点聚合具有歧义的信息，同时保持一致并区分实例，仍然十分困难。将这些表示与不确定性结合可能是前进方向，能够以原则化方式建模歧义。
+
+**三维场景图的前沿。** 三维场景图已经用于规划 [17, 905, 913]、操作 [520]、地图压缩 [166]、预测 [393, 693]、回环检测 [496] 和定位 [530] 等问题。当前研究沿多个方向扩展三维场景图。第一，将其扩展到非结构化和室外场景仍是活跃领域，因为通用室外环境中的场景图层次更难定义和构建 [73, 1037]。第二，场景图层通常由人预先硬编码，而理想情况是机器人根据任务自动重组层次表示；早期工作已开始研究更灵活、任务驱动的三维场景图 [723, 168]。第三，将语言或语言嵌入引入三维场景图，突破封闭集语义 [1182, 407, 723, 168]；开放集语义建图将在下一章详细讨论。第四，为场景图增加运动、动态性和可供性等语义信息 [1268]。最后，传统 SLAM 中已有成熟的不确定性量化方法（参见第 6 章），但对混合离散和连续变量的分层表示进行不确定性量化，仍是很少被探索的问题。
+
+**多机器人语义理解。** 本章主要关注单机器人度量--语义 SLAM，但近期研究也将这些表示扩展到多机器人团队：多个机器人探索未知环境并构建统一的度量--语义地图。由于信息以分布式方式采集，机器人间共享数据会形成通信瓶颈；采集数据量和问题规模也可能超出单个机器人的处理能力，需要强大的中央服务器或分布式协作。多机器人 SLAM 还缺少所有机器人位姿的可靠初始猜测，因为不同机器人可能使用不同坐标系，这对鲁棒性和离群值剔除提出额外挑战（参见第 3、6 章）。Kimera-Multi [1095] 是首个分布式多机器人度量--语义 SLAM 方法；[1092] 对集中式和分布式 SLAM 的权衡进行了详细实验分析。近期工作还将三维场景图构建扩展到多机器人团队 [167, 325]。
+
+<sup>1</sup> 例如，“椅子”一词是一个符号，因为人类理解椅子的含义。  
+<sup>2</sup> 稠密二维语义分割网络就是这种策略的例子。  
+<sup>3</sup> [496] 给出的树宽界还包含顶层 $l$ 的树宽项；这里为简洁起见假设 $\mathcal{V}_l$ 仅包含一个节点。  
+<sup>4</sup> 不同领域可能采用不同建模选择：室内三维场景图自然使用 $\mathbb{R}^3$，而面向自动驾驶的场景图 [396] 可能更适合使用纬度、经度和海拔。

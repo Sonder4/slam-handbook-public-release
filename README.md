@@ -1,8 +1,8 @@
 # SLAM Handbook Public Release
 
-## Chinese Translation (Chapters 1-2)
+## Chinese Translation (Chapters 1-18)
 
-This fork adds an authorized Chinese translation of Chapters 1 and 2, rebuilt as a Unicode XeLaTeX document and published through GitHub Pages. See [`translation-zh/README.md`](translation-zh/README.md) for the local build instructions, or visit the [中文翻译网站](https://sonder4.github.io/slam-handbook-public-release/).
+This fork adds an authorized Chinese translation of Chapters 1 through 18, rebuilt as a Unicode XeLaTeX document and published through GitHub Pages. See [`translation-zh/README.md`](translation-zh/README.md) for the local build instructions, or visit the [中文翻译网站](https://sonder4.github.io/slam-handbook-public-release/).
 
 The original authors, editors, Cambridge University Press copyright notice, and source-project attribution are retained. The translation and generated PDF may only be redistributed within the applicable authorization.
 

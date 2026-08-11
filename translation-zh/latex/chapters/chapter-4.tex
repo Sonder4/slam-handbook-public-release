@@ -26,9 +26,9 @@
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{9b6b12b1a1fc2f68504689c35738c5b599e7879244940e04019aecab1553f5c4.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{9b6b12b1a1fc2f68504689c35738c5b599e7879244940e04019aecab1553f5c4.jpg}
 \caption{图 4.1 现代 SLAM 系统通常同时包含神经网络和非线性最小二乘。为消除分别优化两个模块所引入的复合误差，可将整个系统表述为包含上层代价和下层代价的双层优化，从而进行端到端优化。}
-\label{fig:9b6b12b1a1fc2f68504689c35738c5b599e7879244940e04019aecab1553f5c4}
+\label{fig:chapter-4-9b6b12b1a1fc2f68504689c35738c5b599e7879244940e04019aecab1553f5c4}
 \end{figure}
 
 $J _ { i } = [ \partial { \pmb r } _ { i } / \partial { \pmb x } ]$ 是残差关于变量的雅可比矩阵。上述迭代方法称为 Gauss-Newton（GN），是一种（近似）二阶的非线性优化器，因为 $\sum _ { i } J _ { i } ^ { \top } J _ { i }$ 是 Hessian 矩阵的近似。为改善鲁棒性和收敛性，Levenberg-Marquardt（LM）等变体会对线性系统施加阻尼；另一些方法则利用线搜索调整更新步长，例如第 1 章介绍的 Dogleg 方法。

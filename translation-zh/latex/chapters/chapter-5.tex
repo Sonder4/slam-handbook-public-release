@@ -14,9 +14,9 @@
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{397bf3ea6ff858f62e430dd83330be86e339a5e5f9cca5799262d9a8119765dd.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{397bf3ea6ff858f62e430dd83330be86e339a5e5f9cca5799262d9a8119765dd.jpg}
 \caption{图 5.1 LiDAR 传感器的单射线和多射线类型。图中给出了真实场景中的 RGB、深度和 LiDAR 范围图像示例。}
-\label{fig:397bf3ea6ff858f62e430dd83330be86e339a5e5f9cca5799262d9a8119765dd}
+\label{fig:chapter-5-397bf3ea6ff858f62e430dd83330be86e339a5e5f9cca5799262d9a8119765dd}
 \end{figure}
 
 \section{传感器测量模型}
@@ -43,9 +43,9 @@ x = r _ {i, j} \cos (\theta_ {i, j}) \cos (\phi_ {i, j})\tag{5.2}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{4cb8d131afc13808e90aab558038aa1c2b1707e944026628de3cf58d141cbe72.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{4cb8d131afc13808e90aab558038aa1c2b1707e944026628de3cf58d141cbe72.jpg}
 \caption{图 5.2 球面坐标。}
-\label{fig:4cb8d131afc13808e90aab558038aa1c2b1707e944026628de3cf58d141cbe72}
+\label{fig:chapter-5-4cb8d131afc13808e90aab558038aa1c2b1707e944026628de3cf58d141cbe72}
 \end{figure}
 
 \begin{equation}
@@ -66,9 +66,9 @@ z = r _ {i, j} \sin (\theta_ {i, j}).\tag{5.4}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{f9bdfadb8891b58ab43430913880377c4f3a68a5a0aec8024ec3acf694c2cc0c.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{f9bdfadb8891b58ab43430913880377c4f3a68a5a0aec8024ec3acf694c2cc0c.jpg}
 \caption{图 5.3 常见稠密表示的示例。}
-\label{fig:f9bdfadb8891b58ab43430913880377c4f3a68a5a0aec8024ec3acf694c2cc0c}
+\label{fig:chapter-5-f9bdfadb8891b58ab43430913880377c4f3a68a5a0aec8024ec3acf694c2cc0c}
 \end{figure}
 
 \section{稠密建图基础}
@@ -80,9 +80,9 @@ z = r _ {i, j} \sin (\theta_ {i, j}).\tag{5.4}
 稠密建图基础。
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{4462b836d740234d9efb94fe9df2eec98699164de4853c7ce956d811fcc039f2.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{4462b836d740234d9efb94fe9df2eec98699164de4853c7ce956d811fcc039f2.jpg}
 \caption{图 5.4 表示可以是显式的，也可以是隐式的。为清晰起见，图示已作简化；在实际中，抽象并非严格可分，通常可以组合使用。}
-\label{fig:4462b836d740234d9efb94fe9df2eec98699164de4853c7ce956d811fcc039f2}
+\label{fig:chapter-5-4462b836d740234d9efb94fe9df2eec98699164de4853c7ce956d811fcc039f2}
 \end{figure}
 
 \textbf{问题 2：应如何表示世界？} 这是关于采用何种空间抽象进行表示的问题。概括而言，表示可以是显式的，也可以是隐式的。显式空间抽象还可根据所使用的几何类型分类，而隐式表示可根据所选函数分类。图 5.4 展示了这些抽象类型。
@@ -99,9 +99,9 @@ z = r _ {i, j} \sin (\theta_ {i, j}).\tag{5.4}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{a0c3917803db17ea2e6794fb0653ac66b0c83186ab12ac2eb9393a3bd34af8dc.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{a0c3917803db17ea2e6794fb0653ac66b0c83186ab12ac2eb9393a3bd34af8dc.jpg}
 \caption{图 5.5 二维简单射线投射示例。给定某个（计算或估计的）方位角处的范围测量，范围测量的回波表示存在障碍物。}
-\label{fig:a0c3917803db17ea2e6794fb0653ac66b0c83186ab12ac2eb9393a3bd34af8dc}
+\label{fig:chapter-5-a0c3917803db17ea2e6794fb0653ac66b0c83186ab12ac2eb9393a3bd34af8dc}
 \end{figure}
 
 给定传感器测量集合 $z _ { 1:t }$ 和传感器位姿集合 $\pmb { x } _ { 1:t }$，地图 $m$ 中每个单元被占据的概率可表示为 $p ( \pmb { m } | \boldsymbol { z } _ { 1:t } , \pmb { x } _ { 1:t } )$。图 5.5 给出了示例地图。假设每个单元 $m _ { k }$ 相互独立且测量条件独立，占据状态可用著名的对数几率形式高效更新 \textsuperscript{[774]}：
@@ -124,9 +124,9 @@ o (m _ {k} | \boldsymbol {z} _ {1: t}) = \frac {p (m _ {k} | \boldsymbol {z} _ {
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{2dc1fb5d9d56f86eadd81aeb50c13cde2fb71fc3f6bf6d80e48c7596ee06da56.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{2dc1fb5d9d56f86eadd81aeb50c13cde2fb71fc3f6bf6d80e48c7596ee06da56.jpg}
 \caption{图 5.6 用显式表面（黑色轮廓）和隐式表面（彩色场）表示的实心二维圆盘。隐式表面函数在物体内部（蓝色）为负，在外部（红色）为正。注意该函数的零交叉对应表面本身。}
-\label{fig:2dc1fb5d9d56f86eadd81aeb50c13cde2fb71fc3f6bf6d80e48c7596ee06da56}
+\label{fig:chapter-5-2dc1fb5d9d56f86eadd81aeb50c13cde2fb71fc3f6bf6d80e48c7596ee06da56}
 \end{figure}
 
 连续隐式表面表示有许多优点。由于不存在固定分辨率，它可以在任意细节层次表示任意形状的物体。此外，只需计算函数符号，就能判断空间中的给定点位于障碍物内部还是外部。
@@ -165,21 +165,21 @@ ESDF 通过为地图中的每个点寻找（欧氏）最近表面点来计算。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{729c87cd13c54d9aa29a946444ace672caafb8ea761d9117908e37c7b16390c7.jpg}
-\label{fig:729c87cd13c54d9aa29a946444ace672caafb8ea761d9117908e37c7b16390c7}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{729c87cd13c54d9aa29a946444ace672caafb8ea761d9117908e37c7b16390c7.jpg}
+\label{fig:chapter-5-729c87cd13c54d9aa29a946444ace672caafb8ea761d9117908e37c7b16390c7}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{e06e97e692e44fa9c671f1e277e96c47c65f233bb1c254cc891cdcae60f35651.jpg}
-\label{fig:e06e97e692e44fa9c671f1e277e96c47c65f233bb1c254cc891cdcae60f35651}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{e06e97e692e44fa9c671f1e277e96c47c65f233bb1c254cc891cdcae60f35651.jpg}
+\label{fig:chapter-5-e06e97e692e44fa9c671f1e277e96c47c65f233bb1c254cc891cdcae60f35651}
 \end{figure}
 
 (a)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{e447a927343799a60338d24906b1fd2ccff69f11421e6172382b7553e7a9cdb4.jpg}
-\label{fig:e447a927343799a60338d24906b1fd2ccff69f11421e6172382b7553e7a9cdb4}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{e447a927343799a60338d24906b1fd2ccff69f11421e6172382b7553e7a9cdb4.jpg}
+\label{fig:chapter-5-e447a927343799a60338d24906b1fd2ccff69f11421e6172382b7553e7a9cdb4}
 \end{figure}
 
 (b)
@@ -219,9 +219,9 @@ ESDF 通过为地图中的每个点寻找（欧氏）最近表面点来计算。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{bbd51a8abb86d14f4b9dbf9318ccd6d5f8876ce59b2e1abd8d16e42de8529bd1.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{bbd51a8abb86d14f4b9dbf9318ccd6d5f8876ce59b2e1abd8d16e42de8529bd1.jpg}
 \caption{图 5.8 Marching Cubes 算法将立方体投影到隐式表面上，查询立方体顶点处函数值的符号，并查表确定这些值对应的 15 种配置之一。（图片来源：Ryoshoru，“Marching cubes”，CC BY 4.0 许可，来源：https://commons.wikimedia.org/wiki/File:MarchingCubesEdit.svg）}
-\label{fig:bbd51a8abb86d14f4b9dbf9318ccd6d5f8876ce59b2e1abd8d16e42de8529bd1}
+\label{fig:chapter-5-bbd51a8abb86d14f4b9dbf9318ccd6d5f8876ce59b2e1abd8d16e42de8529bd1}
 \end{figure}
 
 \section{转换}
@@ -236,9 +236,9 @@ ESDF 通过为地图中的每个点寻找（欧氏）最近表面点来计算。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{8ee90dccf0e08060ba9abfa39ab992f214f72150d351a5c34c0a1ab203b79f72.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{8ee90dccf0e08060ba9abfa39ab992f214f72150d351a5c34c0a1ab203b79f72.jpg}
 \caption{图 5.9 (a) 通过函数 $f(\cdot)$ 将逻辑栅格坐标映射到朴素数组存储，函数将坐标唯一映射为线性索引。(b) 将无序数据直接存入数组结构。}
-\label{fig:8ee90dccf0e08060ba9abfa39ab992f214f72150d351a5c34c0a1ab203b79f72}
+\label{fig:chapter-5-8ee90dccf0e08060ba9abfa39ab992f214f72150d351a5c34c0a1ab203b79f72}
 \end{figure}
 
 \section{数据结构与存储}
@@ -271,9 +271,9 @@ ESDF 通过为地图中的每个点寻找（欧氏）最近表面点来计算。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{62d2224194886c41e6b38d4a72042e4c1051e1b13121ba09342f5ad28a959c2f.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{62d2224194886c41e6b38d4a72042e4c1051e1b13121ba09342f5ad28a959c2f.jpg}
 \caption{图 5.10 不同树层级的八叉树及其八分体示例。八叉树的每一层都将空间细分为更细粒度的八分体。注意，八叉树的更深层级只表示被占据的空间。}
-\label{fig:62d2224194886c41e6b38d4a72042e4c1051e1b13121ba09342f5ad28a959c2f}
+\label{fig:chapter-5-62d2224194886c41e6b38d4a72042e4c1051e1b13121ba09342f5ad28a959c2f}
 \end{figure}
 
 通常只在叶八分体（即没有子节点的八分体）中存储点，并通过遍历树结构确定内部八分体中的点子集。
@@ -292,9 +292,10 @@ ESDF 通过为地图中的每个点寻找（欧氏）最近表面点来计算。
 
 \section{构建地图：方法与实践}
 
-\begin{center}
 \small
-\begin{tabular}{p{0.29\linewidth}p{0.29\linewidth}p{0.29\linewidth}}
+\setlength{\tabcolsep}{2pt}
+\begin{center}
+\begin{tabular}{p{0.317\linewidth}p{0.317\linewidth}p{0.317\linewidth}}
 \toprule
 节 & 空间抽象类型 & 表示的地图实体 \\
 \midrule
@@ -441,24 +442,24 @@ HM 面临的一个挑战是所用核的表达能力。图 5.11 所用的径向�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{5747e487164f38c4984a894030b3612ceeef8b8343c44325b8dcab30ec69c1ad.jpg}
-\label{fig:5747e487164f38c4984a894030b3612ceeef8b8343c44325b8dcab30ec69c1ad}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{5747e487164f38c4984a894030b3612ceeef8b8343c44325b8dcab30ec69c1ad.jpg}
+\label{fig:chapter-5-5747e487164f38c4984a894030b3612ceeef8b8343c44325b8dcab30ec69c1ad}
 \end{figure}
 
 (a)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{c41a8880f986d378ffdd3b2b788bf1040a220b44cc3e9cb23aca49971e288ad2.jpg}
-\label{fig:c41a8880f986d378ffdd3b2b788bf1040a220b44cc3e9cb23aca49971e288ad2}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{c41a8880f986d378ffdd3b2b788bf1040a220b44cc3e9cb23aca49971e288ad2.jpg}
+\label{fig:chapter-5-c41a8880f986d378ffdd3b2b788bf1040a220b44cc3e9cb23aca49971e288ad2}
 \end{figure}
 
 (b)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{94ad4836cb31f41ddbc193757247100d5789dc5d43b9b9ccf2d591faf82cd7ac.jpg}
-\label{fig:94ad4836cb31f41ddbc193757247100d5789dc5d43b9b9ccf2d591faf82cd7ac}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{94ad4836cb31f41ddbc193757247100d5789dc5d43b9b9ccf2d591faf82cd7ac.jpg}
+\label{fig:chapter-5-94ad4836cb31f41ddbc193757247100d5789dc5d43b9b9ccf2d591faf82cd7ac}
 \end{figure}
 
 (c)
@@ -492,9 +493,10 @@ HM 面临的一个挑战是所用核的表达能力。图 5.11 所用的径向�
 
 就查询而言，显式表示可以直接沿表面遍历，这解释了它们在渲染、图形应用和覆盖路径规划等任务中的流行。不过，要回答笛卡尔坐标中的查询，需要进行最近邻查找等额外步骤。隐式表示恰好相反，因此常用于碰撞检查任务。
 
-\begin{center}
 \small
-\begin{tabular}{p{0.29\linewidth}p{0.29\linewidth}p{0.29\linewidth}}
+\setlength{\tabcolsep}{2pt}
+\begin{center}
+\begin{tabular}{p{0.317\linewidth}p{0.317\linewidth}p{0.317\linewidth}}
 \toprule
 操作 & 显式表示中高效 & 隐式表示中高效 \\
 \midrule

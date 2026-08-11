@@ -14,6 +14,20 @@
 - [第 2 章：高级状态变量表示](chapter-2.md)
 - [第 3 章：对错误数据关联和离群值的鲁棒性](chapter-3.md)
 - [第 4 章：可微优化](chapter-4.md)
+- [第 5 章：稠密地图表示](chapter-5.md)
+- [第 6 章：可认证最优求解器与 SLAM 的理论性质](chapter-6.md)
+- [第 7 章：视觉 SLAM](chapter-7.md)
+- [第 8 章：LiDAR SLAM](chapter-8.md)
+- [第 9 章：雷达 SLAM](chapter-9.md)
+- [第 10 章：事件相机 SLAM](chapter-10.md)
+- [第 11 章：SLAM 的惯性里程计](chapter-11.md)
+- [第 12 章：腿式里程计](chapter-12.md)
+- [第 13 章：用深度学习增强 SLAM](chapter-13.md)
+- [第 14 章：可微体渲染的地图表示](chapter-14.md)
+- [第 15 章：动态与可变形 SLAM](chapter-15.md)
+- [第 16 章：度量--语义 SLAM](chapter-16.md)
+- [第 17 章：迈向开放世界空间智能](chapter-17.md)
+- [第 18 章：空间智能系统的计算结构](chapter-18.md)
 
 ## 版权与授权
 

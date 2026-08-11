@@ -24,14 +24,14 @@
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{ddc222b702e516e02124c861c2f00219115135f9feacce05f4d6c64dcf3a872f.jpg}
-\label{fig:ddc222b702e516e02124c861c2f00219115135f9feacce05f4d6c64dcf3a872f}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{ddc222b702e516e02124c861c2f00219115135f9feacce05f4d6c64dcf3a872f.jpg}
+\label{fig:chapter-3-ddc222b702e516e02124c861c2f00219115135f9feacce05f4d6c64dcf3a872f}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{3ccb49c7a253eb43cabf4b89fdc57cf7a6b1778cd2652068a9406a35d9b29a0a.jpg}
-\label{fig:3ccb49c7a253eb43cabf4b89fdc57cf7a6b1778cd2652068a9406a35d9b29a0a}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{3ccb49c7a253eb43cabf4b89fdc57cf7a6b1778cd2652068a9406a35d9b29a0a.jpg}
+\label{fig:chapter-3-3ccb49c7a253eb43cabf4b89fdc57cf7a6b1778cd2652068a9406a35d9b29a0a}
 \end{figure}
 
 \section{存在离群值时的最小二乘}
@@ -40,36 +40,36 @@
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{dd88ae612d25550517be2aa6d8ae6d17b3901bc1d6abdd4f5d62ccc83a7c1816.jpg}
-\label{fig:dd88ae612d25550517be2aa6d8ae6d17b3901bc1d6abdd4f5d62ccc83a7c1816}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{dd88ae612d25550517be2aa6d8ae6d17b3901bc1d6abdd4f5d62ccc83a7c1816.jpg}
+\label{fig:chapter-3-dd88ae612d25550517be2aa6d8ae6d17b3901bc1d6abdd4f5d62ccc83a7c1816}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{14f55ee14950aebd1bd5a280ff3b53899d5efdb8ba1708bc444501ae9c30ac65.jpg}
-\label{fig:14f55ee14950aebd1bd5a280ff3b53899d5efdb8ba1708bc444501ae9c30ac65}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{14f55ee14950aebd1bd5a280ff3b53899d5efdb8ba1708bc444501ae9c30ac65.jpg}
+\label{fig:chapter-3-14f55ee14950aebd1bd5a280ff3b53899d5efdb8ba1708bc444501ae9c30ac65}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{46bebd1e4816f8ebacbb6a7544412b105d02a6f203ddb6a37bf18559bce2a3a8.jpg}
-\label{fig:46bebd1e4816f8ebacbb6a7544412b105d02a6f203ddb6a37bf18559bce2a3a8}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{46bebd1e4816f8ebacbb6a7544412b105d02a6f203ddb6a37bf18559bce2a3a8.jpg}
+\label{fig:chapter-3-46bebd1e4816f8ebacbb6a7544412b105d02a6f203ddb6a37bf18559bce2a3a8}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{7ffa9ac1ea7a9168e51d46d96a15361d33da886fd43be4b1d60e1058b983f8e0.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{7ffa9ac1ea7a9168e51d46d96a15361d33da886fd43be4b1d60e1058b983f8e0.jpg}
 \caption{图 3.1 含离群值的 SLAM 问题：(a)–(c) 分别为 M3500、SubT 和 Victoria Park 数据集的真值轨迹；(d)–(f) 为存在离群值时采用最小二乘形式得到的轨迹估计。内点测量显示为灰色边，离群值显示为红色边。在 SubT 数据集中，还展示了由 SLAM 位姿估计构建的稠密地图。}
-\label{fig:7ffa9ac1ea7a9168e51d46d96a15361d33da886fd43be4b1d60e1058b983f8e0}
+\label{fig:chapter-3-7ffa9ac1ea7a9168e51d46d96a15361d33da886fd43be4b1d60e1058b983f8e0}
 \end{figure}
 
 为说明这一点，图 3.1 给出了三个含离群值 SLAM 问题的结果。第一列是一个称为 M3500 的模拟位姿图优化基准，其中位姿按网格状构型排列；数据集包含 3500 个二维位姿和 8953 个测量。第二列是一个称为 SubT 的真实世界位姿图数据集，采集于 DARPA 地下挑战赛期间的一条隧道中 \textsuperscript{[299]}；该数据集包含 682 个三维位姿和 3278 个测量。第三列是一个称为 Victoria Park 的真实世界基于路标的 SLAM 数据集 \textsuperscript{[809]}；该数据集包含 7120 个二维位姿和路标，以及 17728 个测量。图 3.1(a)–(c) 展示这三个问题的真值轨迹。图 3.1(d)–(f) 展示存在离群值时由最小二乘形式产生的估计。具体地，对 M3500 和 Victoria Park，我们向（回环或路标）测量中加入 15\% 的随机离群值；SubT 数据集本身已包含离群值。图中以红色显示离群测量。可以看到，离群值会导致完全错误的轨迹和地图估计。此外，离群值常揭示环境中的感知混叠：例如，SubT 数据集中间两条外观相似的竖直走廊会诱发许多伪回环，误导后端构建出只有一条竖直走廊的地图。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{01acf9ddaa14e194a185fa6e53e754763021e5e62566968febee2dbd36f5084c.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{01acf9ddaa14e194a185fa6e53e754763021e5e62566968febee2dbd36f5084c.jpg}
 \caption{图 3.2 视觉 SLAM 问题中跨三个帧（分别采集于时刻 $k - 2$、$k - 1$ 和 $k$）的特征跟踪。内点以绿色显示：它们是随时间描绘同一（静态）三维点的像素。离群值以红色显示。}
-\label{fig:01acf9ddaa14e194a185fa6e53e754763021e5e62566968febee2dbd36f5084c}
+\label{fig:chapter-3-01acf9ddaa14e194a185fa6e53e754763021e5e62566968febee2dbd36f5084c}
 \end{figure}
 
 \section{在 SLAM 前端检测和剔除离群值}
@@ -124,9 +124,9 @@ RANSAC 是众多离群值剔除问题的首选方案。特别是，在离群值�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{84029a2147cbfeb042fa3a747daf672039fa3529a7e21e2ef318d1a92d5c4800.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{84029a2147cbfeb042fa3a747daf672039fa3529a7e21e2ef318d1a92d5c4800.jpg}
 \caption{图 3.3 (a) 来自两幅 RGB-D 扫描的三维–三维对应，它们表示场景的两个局部视图。绿色线条表示内点对应，红色线条表示离群值对应。(b) 回环中含离群值的位姿图。绿色虚线表示内点回环，红色点线表示一个离群回环。}
-\label{fig:84029a2147cbfeb042fa3a747daf672039fa3529a7e21e2ef318d1a92d5c4800}
+\label{fig:chapter-3-84029a2147cbfeb042fa3a747daf672039fa3529a7e21e2ef318d1a92d5c4800}
 \end{figure}
 
 因此，本节介绍一种称为\textbf{成对一致性最大化}（Pairwise Consistency Maximization，PCM）的替代方法。该方法不对最小集采样，而是借助图论寻找内部彼此“一致”的最大测量集合。该方法可处理离群值比例超过 90\% 的测量集合，并在传递给后端之前剪除严重离群值。该方法最初由文献 \textsuperscript{[728]} 提出，并在 \textsuperscript{[1005, 332]} 中推广至超越成对一致性的情况。
@@ -169,9 +169,9 @@ F (\boldsymbol {z} _ {i}, \boldsymbol {z} _ {j}) \leq \gamma ,\tag{3.7}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{f405223ca19647a424ddeb6d4d8375573b5020f5b580ad455f92e0a6a438e986.jpg}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{f405223ca19647a424ddeb6d4d8375573b5020f5b580ad455f92e0a6a438e986.jpg}
 \caption{图 3.4 (a) 图 3.3(a) 中三维–三维对应示例的一致性图。(b) 图 3.3(b) 中位姿图示例的回环一致性图。}
-\label{fig:f405223ca19647a424ddeb6d4d8375573b5020f5b580ad455f92e0a6a438e986}
+\label{fig:chapter-3-f405223ca19647a424ddeb6d4d8375573b5020f5b580ad455f92e0a6a438e986}
 \end{figure}
 
 $F ( z _ { i } , z _ { j } ) \leq \gamma$，则节点 $i$ 和 $j$ 之间存在一条边。这通常称为\textbf{一致性图}（consistency graph）。问题（3.8）现在要求选择最大的节点子集 $S$，使 $S$ 中每对节点之间都由一条边相连；这正是图中\textbf{最大团}（maximum clique）的定义。更具体地，在图论中，团是一个节点子集，其中每一对节点之间都有边；最大团则是图中这样的最大节点子集。因此，问题（3.8）的解就是一致性图的最大团。这一图论联系在实践中很有价值，因为对给定图寻找最大团是图论中研究充分的问题，称为最大团问题。最大团问题是 NP-hard 问题 \textsuperscript{[1197]}，且难以近似 \textsuperscript{[1314, 322]}，这意味着寻找任意接近真实解的解同样是 NP-hard 的。不过，已有数十种最大团算法被提出，其中一些可根据图的稠密度处理规模相当大的问题。所提出的方法大多可分为精确方法与基于启发式的方法。所有精确算法的复杂度均为指数级，且通常基于分支定界；启发式算法则常试图利用问题中的某种结构而更快，但代价是不一定保证最优解 \textsuperscript{[1197]}。相对较新的工作，如 \textsuperscript{[853]}，提出了可并行化的最大团算法，能够在大型稀疏图中快速寻找最大团。
@@ -216,46 +216,46 @@ M-估计（“maximum-likelihood-type estimation”）是鲁棒估计的一个�
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{d62f0b14a781770de0d928a2bc5db48feb73bad0b5cecf4fe695e8f16d77a901.jpg}
-\label{fig:d62f0b14a781770de0d928a2bc5db48feb73bad0b5cecf4fe695e8f16d77a901}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{d62f0b14a781770de0d928a2bc5db48feb73bad0b5cecf4fe695e8f16d77a901.jpg}
+\label{fig:chapter-3-d62f0b14a781770de0d928a2bc5db48feb73bad0b5cecf4fe695e8f16d77a901}
 \end{figure}
 
 (a) 二次损失
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{c57bf228a0cde1e02ee2cc1c508ef0c788bff27c89ec49502de7fb1caba5964f.jpg}
-\label{fig:c57bf228a0cde1e02ee2cc1c508ef0c788bff27c89ec49502de7fb1caba5964f}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{c57bf228a0cde1e02ee2cc1c508ef0c788bff27c89ec49502de7fb1caba5964f.jpg}
+\label{fig:chapter-3-c57bf228a0cde1e02ee2cc1c508ef0c788bff27c89ec49502de7fb1caba5964f}
 \end{figure}
 
 (b) Huber 损失
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{abd3380a85d6de0464cb838eddd7048f4f923ca178f7f16256765e143810ad3b.jpg}
-\label{fig:abd3380a85d6de0464cb838eddd7048f4f923ca178f7f16256765e143810ad3b}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{abd3380a85d6de0464cb838eddd7048f4f923ca178f7f16256765e143810ad3b.jpg}
+\label{fig:chapter-3-abd3380a85d6de0464cb838eddd7048f4f923ca178f7f16256765e143810ad3b}
 \end{figure}
 
 (c) Geman-McClure
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{f41954a5877f37fd3f5089ab6964361b69b75d4b3ec9ee80360e1506a2277964.jpg}
-\label{fig:f41954a5877f37fd3f5089ab6964361b69b75d4b3ec9ee80360e1506a2277964}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{f41954a5877f37fd3f5089ab6964361b69b75d4b3ec9ee80360e1506a2277964.jpg}
+\label{fig:chapter-3-f41954a5877f37fd3f5089ab6964361b69b75d4b3ec9ee80360e1506a2277964}
 \end{figure}
 
 (d) Tukey 双权
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{f458be9aab9f793c517fb2748ea55d4d143c45f62830ce2e66af3492680a7929.jpg}
-\label{fig:f458be9aab9f793c517fb2748ea55d4d143c45f62830ce2e66af3492680a7929}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{f458be9aab9f793c517fb2748ea55d4d143c45f62830ce2e66af3492680a7929.jpg}
+\label{fig:chapter-3-f458be9aab9f793c517fb2748ea55d4d143c45f62830ce2e66af3492680a7929}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{0ba2757187eef46948d72a72d4db2b40f92e9dab77d541d37f5f9517c1f5d87c.jpg}
-\label{fig:0ba2757187eef46948d72a72d4db2b40f92e9dab77d541d37f5f9517c1f5d87c}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{0ba2757187eef46948d72a72d4db2b40f92e9dab77d541d37f5f9517c1f5d87c.jpg}
+\label{fig:chapter-3-0ba2757187eef46948d72a72d4db2b40f92e9dab77d541d37f5f9517c1f5d87c}
 \end{figure}
 
 (e) 截断二次
@@ -268,8 +268,8 @@ M-估计（“maximum-likelihood-type estimation”）是鲁棒估计的一个�
 M3500
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{94b8f7648085474b55ce2dca350bb3e76fd2834866375f7f01852ee6305aaca1.jpg}
-\label{fig:94b8f7648085474b55ce2dca350bb3e76fd2834866375f7f01852ee6305aaca1}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{94b8f7648085474b55ce2dca350bb3e76fd2834866375f7f01852ee6305aaca1.jpg}
+\label{fig:chapter-3-94b8f7648085474b55ce2dca350bb3e76fd2834866375f7f01852ee6305aaca1}
 \end{figure}
 
 (a)
@@ -277,8 +277,8 @@ SubT
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{895b8b8f94a3ce2bb52899e3677c80b447412234411ba1eb8645019aa617a9cb.jpg}
-\label{fig:895b8b8f94a3ce2bb52899e3677c80b447412234411ba1eb8645019aa617a9cb}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{895b8b8f94a3ce2bb52899e3677c80b447412234411ba1eb8645019aa617a9cb.jpg}
+\label{fig:chapter-3-895b8b8f94a3ce2bb52899e3677c80b447412234411ba1eb8645019aa617a9cb}
 \end{figure}
 
 (b)
@@ -286,14 +286,14 @@ Victoria Park
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{0fe34b30ed9dd12ac0a191a3c98a1553402d66ff07694f212c4847e7fd0ffb11.jpg}
-\label{fig:0fe34b30ed9dd12ac0a191a3c98a1553402d66ff07694f212c4847e7fd0ffb11}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{0fe34b30ed9dd12ac0a191a3c98a1553402d66ff07694f212c4847e7fd0ffb11.jpg}
+\label{fig:chapter-3-0fe34b30ed9dd12ac0a191a3c98a1553402d66ff07694f212c4847e7fd0ffb11}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{740e4b3e024d267da11078510075d736709ab6c40b47a8a281810f6c36e90088.jpg}
-\label{fig:740e4b3e024d267da11078510075d736709ab6c40b47a8a281810f6c36e90088}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{740e4b3e024d267da11078510075d736709ab6c40b47a8a281810f6c36e90088.jpg}
+\label{fig:chapter-3-740e4b3e024d267da11078510075d736709ab6c40b47a8a281810f6c36e90088}
 \end{figure}
 
 (g)
@@ -301,20 +301,20 @@ Victoria Park
 (c)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{e495738bc6f276a9f347519cec47034b22a623e4cf349d459d1ad90c61e1d976.jpg}
-\label{fig:e495738bc6f276a9f347519cec47034b22a623e4cf349d459d1ad90c61e1d976}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{e495738bc6f276a9f347519cec47034b22a623e4cf349d459d1ad90c61e1d976.jpg}
+\label{fig:chapter-3-e495738bc6f276a9f347519cec47034b22a623e4cf349d459d1ad90c61e1d976}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{d60fedf39af3e05f868b32152c41a5f32aac657c9804c48482bdb46bb5c314bd.jpg}
-\label{fig:d60fedf39af3e05f868b32152c41a5f32aac657c9804c48482bdb46bb5c314bd}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{d60fedf39af3e05f868b32152c41a5f32aac657c9804c48482bdb46bb5c314bd.jpg}
+\label{fig:chapter-3-d60fedf39af3e05f868b32152c41a5f32aac657c9804c48482bdb46bb5c314bd}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{85c8e422b6bfba361c12de6e5d4625705cbad67c27e1288e7d585a3831ea9605.jpg}
-\label{fig:85c8e422b6bfba361c12de6e5d4625705cbad67c27e1288e7d585a3831ea9605}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{85c8e422b6bfba361c12de6e5d4625705cbad67c27e1288e7d585a3831ea9605.jpg}
+\label{fig:chapter-3-85c8e422b6bfba361c12de6e5d4625705cbad67c27e1288e7d585a3831ea9605}
 \end{figure}
 
 (j)
@@ -323,16 +323,16 @@ Victoria Park
 (i)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{3d959690ff503efd6feab0e359665c47153cc67e22401e00bf11f8da991c418c.jpg}
-\label{fig:3d959690ff503efd6feab0e359665c47153cc67e22401e00bf11f8da991c418c}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{3d959690ff503efd6feab0e359665c47153cc67e22401e00bf11f8da991c418c.jpg}
+\label{fig:chapter-3-3d959690ff503efd6feab0e359665c47153cc67e22401e00bf11f8da991c418c}
 \end{figure}
 
 (k)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{315a9c1c1ab8526b9fb06c328de349f4eeccd799161aa0d486bc8260e16faf35.jpg}
-\label{fig:315a9c1c1ab8526b9fb06c328de349f4eeccd799161aa0d486bc8260e16faf35}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{315a9c1c1ab8526b9fb06c328de349f4eeccd799161aa0d486bc8260e16faf35.jpg}
+\label{fig:chapter-3-315a9c1c1ab8526b9fb06c328de349f4eeccd799161aa0d486bc8260e16faf35}
 \end{figure}
 
 (l)
@@ -402,74 +402,74 @@ B–R 对偶性将上述推导推广到一族鲁棒损失。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{1d130e48ce5ae89eb8ea8000207184c0f46a92d0179c5bd4cd972e0e41ef7401.jpg}
-\label{fig:1d130e48ce5ae89eb8ea8000207184c0f46a92d0179c5bd4cd972e0e41ef7401}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{1d130e48ce5ae89eb8ea8000207184c0f46a92d0179c5bd4cd972e0e41ef7401.jpg}
+\label{fig:chapter-3-1d130e48ce5ae89eb8ea8000207184c0f46a92d0179c5bd4cd972e0e41ef7401}
 \end{figure}
 
 (a)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{22004b752ab47b2f04d0b7a15f4b9578f0daee5a9933cddbe2078e905e5b17f8.jpg}
-\label{fig:22004b752ab47b2f04d0b7a15f4b9578f0daee5a9933cddbe2078e905e5b17f8}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{22004b752ab47b2f04d0b7a15f4b9578f0daee5a9933cddbe2078e905e5b17f8.jpg}
+\label{fig:chapter-3-22004b752ab47b2f04d0b7a15f4b9578f0daee5a9933cddbe2078e905e5b17f8}
 \end{figure}
 
 (b)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{caa9b3945f4dbad245aac6253ee8d01d1bde3bc8927179457a11efc3014a54aa.jpg}
-\label{fig:caa9b3945f4dbad245aac6253ee8d01d1bde3bc8927179457a11efc3014a54aa}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{caa9b3945f4dbad245aac6253ee8d01d1bde3bc8927179457a11efc3014a54aa.jpg}
+\label{fig:chapter-3-caa9b3945f4dbad245aac6253ee8d01d1bde3bc8927179457a11efc3014a54aa}
 \end{figure}
 
 (c)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{efd597cb0e6be3d3c4e7ca6490473b66fb6a407d9a225458dc8e26b0cecc5a7e.jpg}
-\label{fig:efd597cb0e6be3d3c4e7ca6490473b66fb6a407d9a225458dc8e26b0cecc5a7e}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{efd597cb0e6be3d3c4e7ca6490473b66fb6a407d9a225458dc8e26b0cecc5a7e.jpg}
+\label{fig:chapter-3-efd597cb0e6be3d3c4e7ca6490473b66fb6a407d9a225458dc8e26b0cecc5a7e}
 \end{figure}
 
 (d)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{28bb557ca0cd61c56726206a0b9c994e3f1b56c337e89bb31e91beddca632adb.jpg}
-\label{fig:28bb557ca0cd61c56726206a0b9c994e3f1b56c337e89bb31e91beddca632adb}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{28bb557ca0cd61c56726206a0b9c994e3f1b56c337e89bb31e91beddca632adb.jpg}
+\label{fig:chapter-3-28bb557ca0cd61c56726206a0b9c994e3f1b56c337e89bb31e91beddca632adb}
 \end{figure}
 
 (e)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{fbbe5ebf8b01008f045c9ff6c693d5f1b34e80aabd42b74778dbf831b1ea693b.jpg}
-\label{fig:fbbe5ebf8b01008f045c9ff6c693d5f1b34e80aabd42b74778dbf831b1ea693b}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{fbbe5ebf8b01008f045c9ff6c693d5f1b34e80aabd42b74778dbf831b1ea693b.jpg}
+\label{fig:chapter-3-fbbe5ebf8b01008f045c9ff6c693d5f1b34e80aabd42b74778dbf831b1ea693b}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{38194e893d58a0b04f16405f4ebcd6be594f23bae01374191eecebd6b9c446ec.jpg}
-\label{fig:38194e893d58a0b04f16405f4ebcd6be594f23bae01374191eecebd6b9c446ec}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{38194e893d58a0b04f16405f4ebcd6be594f23bae01374191eecebd6b9c446ec.jpg}
+\label{fig:chapter-3-38194e893d58a0b04f16405f4ebcd6be594f23bae01374191eecebd6b9c446ec}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{df4331d7cfcda9d6a9b97f77d0a154cedc575e3ddcc79dc0e110c75705e22a05.jpg}
-\label{fig:df4331d7cfcda9d6a9b97f77d0a154cedc575e3ddcc79dc0e110c75705e22a05}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{df4331d7cfcda9d6a9b97f77d0a154cedc575e3ddcc79dc0e110c75705e22a05.jpg}
+\label{fig:chapter-3-df4331d7cfcda9d6a9b97f77d0a154cedc575e3ddcc79dc0e110c75705e22a05}
 \end{figure}
 
 (f)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{4719d820b655c27cc77f2a77b460607f77aeb990430e4ad9caa17e68cbc36e75.jpg}
-\label{fig:4719d820b655c27cc77f2a77b460607f77aeb990430e4ad9caa17e68cbc36e75}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{4719d820b655c27cc77f2a77b460607f77aeb990430e4ad9caa17e68cbc36e75.jpg}
+\label{fig:chapter-3-4719d820b655c27cc77f2a77b460607f77aeb990430e4ad9caa17e68cbc36e75}
 \end{figure}
 
 (g)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{47f5bc57cbecd5a73c7edad8f51de5a1c2a3faeb922a964508678a91230f8943.jpg}
-\label{fig:47f5bc57cbecd5a73c7edad8f51de5a1c2a3faeb922a964508678a91230f8943}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{47f5bc57cbecd5a73c7edad8f51de5a1c2a3faeb922a964508678a91230f8943.jpg}
+\label{fig:chapter-3-47f5bc57cbecd5a73c7edad8f51de5a1c2a3faeb922a964508678a91230f8943}
 \end{figure}
 
 (j)
@@ -477,8 +477,8 @@ B–R 对偶性将上述推导推广到一族鲁棒损失。
 (h)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{6adeb320e916550af9d861e27c0b5cf00b8a383c510ede33cbb133457c855d17.jpg}
-\label{fig:6adeb320e916550af9d861e27c0b5cf00b8a383c510ede33cbb133457c855d17}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{6adeb320e916550af9d861e27c0b5cf00b8a383c510ede33cbb133457c855d17.jpg}
+\label{fig:chapter-3-6adeb320e916550af9d861e27c0b5cf00b8a383c510ede33cbb133457c855d17}
 \end{figure}
 
 (k)
@@ -486,8 +486,8 @@ B–R 对偶性将上述推导推广到一族鲁棒损失。
 (i)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{d395015818cefe925401bd4aecbd5f6b186796d121313b9dafefd02772df11f2.jpg}
-\label{fig:d395015818cefe925401bd4aecbd5f6b186796d121313b9dafefd02772df11f2}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{d395015818cefe925401bd4aecbd5f6b186796d121313b9dafefd02772df11f2.jpg}
+\label{fig:chapter-3-d395015818cefe925401bd4aecbd5f6b186796d121313b9dafefd02772df11f2}
 \end{figure}
 
 (l)
@@ -587,16 +587,16 @@ w _ {i} ^ {(t + 1)} \in \underset {w _ {i} \in [ 0, 1 ]} {\arg \min} \Phi_ {\rho
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{d5c45e32a41fb6e784e6325650985c2586a323d0397f6ad629c99100d34d40ba.jpg}
-\label{fig:d5c45e32a41fb6e784e6325650985c2586a323d0397f6ad629c99100d34d40ba}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{d5c45e32a41fb6e784e6325650985c2586a323d0397f6ad629c99100d34d40ba.jpg}
+\label{fig:chapter-3-d5c45e32a41fb6e784e6325650985c2586a323d0397f6ad629c99100d34d40ba}
 \end{figure}
 
 (a)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{601276569c745a3004affebd09355ebb79087d71f04fbcfc5891d0779d5a58c8.jpg}
-\label{fig:601276569c745a3004affebd09355ebb79087d71f04fbcfc5891d0779d5a58c8}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{601276569c745a3004affebd09355ebb79087d71f04fbcfc5891d0779d5a58c8.jpg}
+\label{fig:chapter-3-601276569c745a3004affebd09355ebb79087d71f04fbcfc5891d0779d5a58c8}
 \end{figure}
 
 (b)
@@ -641,8 +641,8 @@ GNC 算法类似 IRLS，区别在于它从凸的平滑函数 $\rho _ { \mu }$ �
 M3500
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{b05ceda71ff0e3dee01d0b5fc5336292fd937615309e129bd5b19a6083a6bc62.jpg}
-\label{fig:b05ceda71ff0e3dee01d0b5fc5336292fd937615309e129bd5b19a6083a6bc62}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{b05ceda71ff0e3dee01d0b5fc5336292fd937615309e129bd5b19a6083a6bc62.jpg}
+\label{fig:chapter-3-b05ceda71ff0e3dee01d0b5fc5336292fd937615309e129bd5b19a6083a6bc62}
 \end{figure}
 
 (a)
@@ -650,16 +650,16 @@ SubT
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{2509e7220eb57b3d6e615fb69bd6ab471a68341f555208c627fe8c275c27d372.jpg}
-\label{fig:2509e7220eb57b3d6e615fb69bd6ab471a68341f555208c627fe8c275c27d372}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{2509e7220eb57b3d6e615fb69bd6ab471a68341f555208c627fe8c275c27d372.jpg}
+\label{fig:chapter-3-2509e7220eb57b3d6e615fb69bd6ab471a68341f555208c627fe8c275c27d372}
 \end{figure}
 
 Victoria Park
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{cae6574d230e4a3c126702533cde19830151b1098536973603ff71a249b25185.jpg}
-\label{fig:cae6574d230e4a3c126702533cde19830151b1098536973603ff71a249b25185}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{cae6574d230e4a3c126702533cde19830151b1098536973603ff71a249b25185.jpg}
+\label{fig:chapter-3-cae6574d230e4a3c126702533cde19830151b1098536973603ff71a249b25185}
 \end{figure}
 
 (b)
@@ -667,28 +667,28 @@ Victoria Park
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{5f3d80b8c9993f563c9cce32d7c19178eeaba68ef463a812f5e44b2b4eaee428.jpg}
-\label{fig:5f3d80b8c9993f563c9cce32d7c19178eeaba68ef463a812f5e44b2b4eaee428}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{5f3d80b8c9993f563c9cce32d7c19178eeaba68ef463a812f5e44b2b4eaee428.jpg}
+\label{fig:chapter-3-5f3d80b8c9993f563c9cce32d7c19178eeaba68ef463a812f5e44b2b4eaee428}
 \end{figure}
 
 (d)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{a47812bf602bcbfc1e8bea276ffc29ff1c887a40d4a7f1088be0855292b44bf1.jpg}
-\label{fig:a47812bf602bcbfc1e8bea276ffc29ff1c887a40d4a7f1088be0855292b44bf1}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{a47812bf602bcbfc1e8bea276ffc29ff1c887a40d4a7f1088be0855292b44bf1.jpg}
+\label{fig:chapter-3-a47812bf602bcbfc1e8bea276ffc29ff1c887a40d4a7f1088be0855292b44bf1}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{def2c00b9208c3e958416444ea23922ce5d260c838da2437dadb5e5f110d6877.jpg}
-\label{fig:def2c00b9208c3e958416444ea23922ce5d260c838da2437dadb5e5f110d6877}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{def2c00b9208c3e958416444ea23922ce5d260c838da2437dadb5e5f110d6877.jpg}
+\label{fig:chapter-3-def2c00b9208c3e958416444ea23922ce5d260c838da2437dadb5e5f110d6877}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{38203cc950fa0189b22b31bf9677bf1ed60c9fb522cd4ccd4b3fc68fb3088bc4.jpg}
-\label{fig:38203cc950fa0189b22b31bf9677bf1ed60c9fb522cd4ccd4b3fc68fb3088bc4}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{38203cc950fa0189b22b31bf9677bf1ed60c9fb522cd4ccd4b3fc68fb3088bc4.jpg}
+\label{fig:chapter-3-38203cc950fa0189b22b31bf9677bf1ed60c9fb522cd4ccd4b3fc68fb3088bc4}
 \end{figure}
 
 (g)
@@ -697,16 +697,16 @@ Victoria Park
 (e)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{78e6ddafe7c9a558f683a314e4fc185ceb9b843eaef1d16d65526526611b7f65.jpg}
-\label{fig:78e6ddafe7c9a558f683a314e4fc185ceb9b843eaef1d16d65526526611b7f65}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{78e6ddafe7c9a558f683a314e4fc185ceb9b843eaef1d16d65526526611b7f65.jpg}
+\label{fig:chapter-3-78e6ddafe7c9a558f683a314e4fc185ceb9b843eaef1d16d65526526611b7f65}
 \end{figure}
 
 (h)
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{060b8e619f9c08bb2f70d19018afb69e81988d5c7556b91ecd2021e099208f4b.jpg}
-\label{fig:060b8e619f9c08bb2f70d19018afb69e81988d5c7556b91ecd2021e099208f4b}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{060b8e619f9c08bb2f70d19018afb69e81988d5c7556b91ecd2021e099208f4b.jpg}
+\label{fig:chapter-3-060b8e619f9c08bb2f70d19018afb69e81988d5c7556b91ecd2021e099208f4b}
 \end{figure}
 
 (i)
@@ -715,8 +715,8 @@ Victoria Park
 M3500
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{d2882ed1424ef18300c55e7d00e57729eb0b84a2385d828ac2329d94ed020750.jpg}
-\label{fig:d2882ed1424ef18300c55e7d00e57729eb0b84a2385d828ac2329d94ed020750}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{d2882ed1424ef18300c55e7d00e57729eb0b84a2385d828ac2329d94ed020750.jpg}
+\label{fig:chapter-3-d2882ed1424ef18300c55e7d00e57729eb0b84a2385d828ac2329d94ed020750}
 \end{figure}
 
 (a)
@@ -724,43 +724,43 @@ M3500
 SubT
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{5df8cba2e5315e1f2caec4c78b5e47f41ddf1b2c5205778b831bd48f8663c940.jpg}
-\label{fig:5df8cba2e5315e1f2caec4c78b5e47f41ddf1b2c5205778b831bd48f8663c940}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{5df8cba2e5315e1f2caec4c78b5e47f41ddf1b2c5205778b831bd48f8663c940.jpg}
+\label{fig:chapter-3-5df8cba2e5315e1f2caec4c78b5e47f41ddf1b2c5205778b831bd48f8663c940}
 \end{figure}
 
 Victoria Park
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{e09061bf60bd4e86e3bbc576d7dd23edebb5227a069c30cd3eec5248284cba8d.jpg}
-\label{fig:e09061bf60bd4e86e3bbc576d7dd23edebb5227a069c30cd3eec5248284cba8d}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{e09061bf60bd4e86e3bbc576d7dd23edebb5227a069c30cd3eec5248284cba8d.jpg}
+\label{fig:chapter-3-e09061bf60bd4e86e3bbc576d7dd23edebb5227a069c30cd3eec5248284cba8d}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{fa5804728b14230829381ece9f392d23b9b0ec5990742ae2c6676d1649039eb1.jpg}
-\label{fig:fa5804728b14230829381ece9f392d23b9b0ec5990742ae2c6676d1649039eb1}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{fa5804728b14230829381ece9f392d23b9b0ec5990742ae2c6676d1649039eb1.jpg}
+\label{fig:chapter-3-fa5804728b14230829381ece9f392d23b9b0ec5990742ae2c6676d1649039eb1}
 \end{figure}
 
 (b)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{a7c09461b4a23d467b3bcb78ca6b10fa61d1ea1a63ea1b27814eee4b680fd151.jpg}
-\label{fig:a7c09461b4a23d467b3bcb78ca6b10fa61d1ea1a63ea1b27814eee4b680fd151}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{a7c09461b4a23d467b3bcb78ca6b10fa61d1ea1a63ea1b27814eee4b680fd151.jpg}
+\label{fig:chapter-3-a7c09461b4a23d467b3bcb78ca6b10fa61d1ea1a63ea1b27814eee4b680fd151}
 \end{figure}
 
 (c)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{4445cccec0d0f23f181f9b78da1f6e410799d47cb933104b566421957008e984.jpg}
-\label{fig:4445cccec0d0f23f181f9b78da1f6e410799d47cb933104b566421957008e984}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{4445cccec0d0f23f181f9b78da1f6e410799d47cb933104b566421957008e984.jpg}
+\label{fig:chapter-3-4445cccec0d0f23f181f9b78da1f6e410799d47cb933104b566421957008e984}
 \end{figure}
 
 (d)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{90e841f1a16ac212ff2be7066b957819a997ccc70de5f3501f3fd36f8ab00ec2.jpg}
-\label{fig:90e841f1a16ac212ff2be7066b957819a997ccc70de5f3501f3fd36f8ab00ec2}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{90e841f1a16ac212ff2be7066b957819a997ccc70de5f3501f3fd36f8ab00ec2.jpg}
+\label{fig:chapter-3-90e841f1a16ac212ff2be7066b957819a997ccc70de5f3501f3fd36f8ab00ec2}
 \end{figure}
 
 (g)
@@ -768,8 +768,8 @@ Victoria Park
 (e)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{3c2bf85279f9d3bf422848becd821a386a8abe8ac06de369855d606430bde9d6.jpg}
-\label{fig:3c2bf85279f9d3bf422848becd821a386a8abe8ac06de369855d606430bde9d6}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{3c2bf85279f9d3bf422848becd821a386a8abe8ac06de369855d606430bde9d6.jpg}
+\label{fig:chapter-3-3c2bf85279f9d3bf422848becd821a386a8abe8ac06de369855d606430bde9d6}
 \end{figure}
 
 (h)
@@ -777,8 +777,8 @@ Victoria Park
 (f)
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\linewidth]{aaca4bf1d9cb5663a25d86c161fac9f126bdffe2719cb8e688575f342d59937f.jpg}
-\label{fig:aaca4bf1d9cb5663a25d86c161fac9f126bdffe2719cb8e688575f342d59937f}
+\includegraphics[width=\linewidth,height=0.78\textheight,keepaspectratio]{aaca4bf1d9cb5663a25d86c161fac9f126bdffe2719cb8e688575f342d59937f.jpg}
+\label{fig:chapter-3-aaca4bf1d9cb5663a25d86c161fac9f126bdffe2719cb8e688575f342d59937f}
 \end{figure}
 
 (i)
