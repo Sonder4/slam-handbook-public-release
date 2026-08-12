@@ -1,5 +1,6 @@
 (() => {
   const embedded = new URLSearchParams(window.location.search).has("embed");
+  const desktopReaderQuery = window.matchMedia("(min-width: 64.01em)");
   let bilingualController;
 
   function documentReady(callback) {
@@ -21,6 +22,7 @@
       bilingualController?.abort();
       bilingualController = undefined;
       document.body.classList.remove("bilingual-reader-page");
+      document.documentElement.classList.remove("bilingual-reader-active");
       return;
     }
     if (toggle.dataset.bilingualInitialized === "true") return;
@@ -30,17 +32,33 @@
     const { signal } = bilingualController;
     toggle.dataset.bilingualInitialized = "true";
     document.body.classList.remove("bilingual-reader-page");
+    document.documentElement.classList.remove("bilingual-reader-active");
 
     let layout = content.querySelector(":scope > .bilingual-reader-layout");
-    let englishPane;
-    let frame;
-    let syncing = false;
+    let chinesePane = layout?.querySelector(".bilingual-reader-pane--chinese");
+    let englishPane = layout?.querySelector(".bilingual-reader-pane--english");
+    let frame = englishPane?.querySelector("iframe");
+    let frameController;
+    let syncFrame;
+    let syncMonitor;
+    let syncingPane;
+    let lastChineseTop = 0;
+    let lastEnglishTop = 0;
+    let savedPageTop = 0;
+
+    const scrollRange = (element) => Math.max(0, element.scrollHeight - element.clientHeight);
+
+    function pageProgress() {
+      const page = document.scrollingElement;
+      const range = page ? scrollRange(page) : 0;
+      return range > 0 ? page.scrollTop / range : 0;
+    }
 
     function ensureLayout() {
       if (layout) return;
       layout = document.createElement("div");
       layout.className = "bilingual-reader-layout";
-      const chinesePane = document.createElement("section");
+      chinesePane = document.createElement("section");
       chinesePane.className = "bilingual-reader-pane bilingual-reader-pane--chinese";
       const nav = toggle.closest("nav");
       [...content.childNodes].forEach((node) => {
@@ -54,67 +72,162 @@
       content.appendChild(layout);
     }
 
-    function syncFromPage() {
-      if (
-        syncing ||
-        !document.body.classList.contains("bilingual-reader-page") ||
-        !frame?.contentDocument
-      ) return;
-      const target = frame.contentDocument.scrollingElement;
-      const page = document.scrollingElement;
-      if (!target || !page) return;
-      const pageRange = page.scrollHeight - page.clientHeight;
-      const ratio = pageRange > 0 ? page.scrollTop / pageRange : 0;
-      syncing = true;
-      target.scrollTop = ratio * Math.max(0, target.scrollHeight - target.clientHeight);
-      requestAnimationFrame(() => { syncing = false; });
+    function readerIsActive() {
+      return desktopReaderQuery.matches &&
+        document.body.classList.contains("bilingual-reader-page");
     }
 
-    function syncFromEnglish() {
-      if (
-        syncing ||
-        !document.body.classList.contains("bilingual-reader-page") ||
-        !frame?.contentDocument
-      ) return;
-      const source = frame.contentDocument.scrollingElement;
-      const page = document.scrollingElement;
-      if (!source || !page) return;
-      const sourceRange = source.scrollHeight - source.clientHeight;
-      const ratio = sourceRange > 0 ? source.scrollTop / sourceRange : 0;
-      syncing = true;
-      page.scrollTop = ratio * Math.max(0, page.scrollHeight - page.clientHeight);
-      requestAnimationFrame(() => { syncing = false; });
+    function syncScroll(source) {
+      if (!readerIsActive() || !frame?.contentDocument || !chinesePane) return;
+      const englishScroller = frame.contentDocument.scrollingElement;
+      const from = source === "zh" ? chinesePane : englishScroller;
+      const to = source === "zh" ? englishScroller : chinesePane;
+      const fromRange = scrollRange(from);
+      const ratio = fromRange > 0 ? from.scrollTop / fromRange : 0;
+      syncingPane = source === "zh" ? "en" : "zh";
+      to.scrollTop = ratio * scrollRange(to);
+      lastChineseTop = chinesePane.scrollTop;
+      lastEnglishTop = englishScroller.scrollTop;
+      requestAnimationFrame(() => {
+        if (syncingPane === (source === "zh" ? "en" : "zh")) syncingPane = undefined;
+      });
+    }
+
+    function syncFromChinese() {
+      if (syncingPane === "zh") return;
+      cancelAnimationFrame(syncFrame);
+      syncFrame = requestAnimationFrame(() => syncScroll("zh"));
+    }
+
+    function startScrollMonitor() {
+      clearInterval(syncMonitor);
+      syncMonitor = window.setInterval(() => {
+        if (!readerIsActive() || !chinesePane) return;
+        const englishScroller = frame?.contentDocument?.scrollingElement;
+        if (!englishScroller) return;
+        const chineseChanged = Math.abs(chinesePane.scrollTop - lastChineseTop) > 0.5;
+        const englishChanged = Math.abs(englishScroller.scrollTop - lastEnglishTop) > 0.5;
+        if (englishChanged && !chineseChanged && syncingPane !== "en") {
+          syncScroll("en");
+        } else if (chineseChanged && !englishChanged && syncingPane !== "zh") {
+          syncScroll("zh");
+        }
+        lastChineseTop = chinesePane.scrollTop;
+        lastEnglishTop = englishScroller.scrollTop;
+      }, 40);
     }
 
     function bindFrame() {
-      const scroller = frame?.contentDocument?.scrollingElement;
-      if (!scroller || scroller.dataset.bilingualBound) return;
-      scroller.dataset.bilingualBound = "true";
-      scroller.addEventListener("scroll", syncFromEnglish, { passive: true });
-      syncFromPage();
+      const frameDocument = frame?.contentDocument;
+      const scroller = frameDocument?.scrollingElement;
+      if (!scroller) return;
+      frameController?.abort();
+      frameController = new AbortController();
+      frame.contentWindow.addEventListener("scroll", () => {
+        if (syncingPane !== "en") {
+          syncScroll("en");
+        }
+      }, { passive: true, signal: frameController.signal });
+      syncScroll("zh");
+      startScrollMonitor();
     }
 
-    toggle.addEventListener("click", () => {
-      const opening = !document.body.classList.contains("bilingual-reader-page");
+    function updateReaderHeight() {
+      if (!readerIsActive() || !layout) return;
+      const top = Math.max(0, layout.getBoundingClientRect().top);
+      const available = Math.max(320, window.innerHeight - top - 12);
+      layout.style.setProperty("--bilingual-reader-height", `${available}px`);
+    }
+
+    function openReader(initialProgress) {
       ensureLayout();
-      document.body.classList.toggle("bilingual-reader-page", opening);
-      toggle.setAttribute("aria-expanded", String(opening));
-      toggle.textContent = opening ? "关闭中英对照" : "中英对照阅读";
-      if (opening && !frame) {
+      savedPageTop = document.scrollingElement?.scrollTop || 0;
+      if (desktopReaderQuery.matches) window.scrollTo(0, 0);
+      document.body.classList.add("bilingual-reader-page");
+      document.documentElement.classList.toggle(
+        "bilingual-reader-active",
+        desktopReaderQuery.matches
+      );
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.textContent = "关闭中英对照";
+
+      if (!frame) {
         frame = document.createElement("iframe");
         frame.title = "English original";
         frame.loading = "eager";
         frame.src = toggle.dataset.englishUrl;
-        frame.addEventListener("load", bindFrame);
+        frame.addEventListener("load", bindFrame, { signal });
         englishPane.appendChild(frame);
-      } else if (opening) {
-        bindFrame();
+      }
+
+      requestAnimationFrame(() => {
+        updateReaderHeight();
+        startScrollMonitor();
+        if (desktopReaderQuery.matches && chinesePane) {
+          chinesePane.scrollTop = initialProgress * scrollRange(chinesePane);
+          bindFrame();
+        }
+      });
+    }
+
+    function closeReader() {
+      const progress = chinesePane && scrollRange(chinesePane) > 0
+        ? chinesePane.scrollTop / scrollRange(chinesePane)
+        : pageProgress();
+      cancelAnimationFrame(syncFrame);
+      clearInterval(syncMonitor);
+      document.body.classList.remove("bilingual-reader-page");
+      document.documentElement.classList.remove("bilingual-reader-active");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.textContent = "中英对照阅读";
+      requestAnimationFrame(() => {
+        const page = document.scrollingElement;
+        if (!page) return;
+        const restored = desktopReaderQuery.matches
+          ? progress * scrollRange(page)
+          : savedPageTop;
+        window.scrollTo(0, restored);
+      });
+    }
+
+    toggle.addEventListener("click", () => {
+      const opening = !document.body.classList.contains("bilingual-reader-page");
+      if (opening) {
+        const initialProgress = pageProgress();
+        ensureLayout();
+        if (!chinesePane.dataset.bilingualBound) {
+          chinesePane.dataset.bilingualBound = "true";
+          chinesePane.addEventListener("scroll", syncFromChinese, { passive: true, signal });
+        }
+        openReader(initialProgress);
+      } else {
+        closeReader();
       }
     }, { signal });
-    window.addEventListener("scroll", syncFromPage, { passive: true, signal });
+
+    window.addEventListener("resize", updateReaderHeight, { passive: true, signal });
+    desktopReaderQuery.addEventListener("change", () => {
+      if (!document.body.classList.contains("bilingual-reader-page")) return;
+      if (desktopReaderQuery.matches) {
+        document.documentElement.classList.add("bilingual-reader-active");
+        window.scrollTo(0, 0);
+        requestAnimationFrame(() => {
+          updateReaderHeight();
+          startScrollMonitor();
+        });
+      } else {
+        clearInterval(syncMonitor);
+        layout?.style.removeProperty("--bilingual-reader-height");
+        document.documentElement.classList.remove("bilingual-reader-active");
+      }
+    }, { signal });
+    signal.addEventListener("abort", () => {
+      frameController?.abort();
+      cancelAnimationFrame(syncFrame);
+      clearInterval(syncMonitor);
+      document.documentElement.classList.remove("bilingual-reader-active");
+    }, { once: true });
   }
 
-  documentReady(embedded ? initializeEmbed : () => {
-    initializeBilingualReader();
-  });
+  documentReady(embedded ? initializeEmbed : initializeBilingualReader);
 })();

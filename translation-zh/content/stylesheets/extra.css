@@ -63,13 +63,10 @@ body.bilingual-reader-page .bilingual-reader-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.25rem;
-  align-items: start;
+  align-items: stretch;
 }
 body.bilingual-reader-page .bilingual-reader-pane--english {
-  position: sticky;
-  top: 4rem;
   display: grid;
-  height: calc(100vh - 5rem);
   grid-template-rows: auto minmax(0, 1fr);
   border-left: 1px solid var(--md-default-fg-color--lighter);
   background: var(--md-default-bg-color);
@@ -157,11 +154,19 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
   .md-sidebar__scrollwrap {
     height: 100%;
     margin: 0;
+    overflow-x: hidden;
   }
   .md-sidebar__inner {
     width: var(--reader-sidebar-width);
+    max-width: 100%;
     padding: 0.6rem 0.5rem 1rem;
+    box-sizing: border-box;
     transition: opacity 0.12s ease;
+  }
+  .md-sidebar .md-nav__link {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .md-content {
     width: auto;
@@ -199,6 +204,30 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
   .reader-sidebar-toggle--secondary { right: 0.25rem; }
 }
 
+@media screen and (min-width: 64.01em) {
+  html.bilingual-reader-active,
+  html.bilingual-reader-active body {
+    overflow-y: hidden;
+  }
+  body.bilingual-reader-page .bilingual-reader-layout {
+    height: var(--bilingual-reader-height, calc(100vh - 8rem));
+    overflow: hidden;
+  }
+  body.bilingual-reader-page .bilingual-reader-pane--chinese {
+    height: 100%;
+    padding-right: 0.5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  body.bilingual-reader-page .bilingual-reader-pane--english {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
 @media screen and (max-width: 76.234em) {
   .reader-sidebar-toggle { display: none; }
 }
@@ -208,7 +237,6 @@ body.reader-embed .md-content__inner > :first-child { margin-top: 0; }
     grid-template-columns: 1fr;
   }
   body.bilingual-reader-page .bilingual-reader-pane--english {
-    position: static;
     height: 70vh;
     min-height: 32rem;
     border-top: 1px solid var(--md-default-fg-color--lighter);
