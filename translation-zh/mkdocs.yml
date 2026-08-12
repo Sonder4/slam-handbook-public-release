@@ -69,7 +69,6 @@ extra_javascript:
   - javascripts/sidebar-controls.js
   - javascripts/parallel-reader.js
   - javascripts/mathjax.js
-  - javascripts/mathjax/tex-chtml-full.js
 
 extra_css:
   - stylesheets/extra.css
