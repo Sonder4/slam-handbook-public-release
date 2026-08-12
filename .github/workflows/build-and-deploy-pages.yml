@@ -23,60 +23,17 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install MiKTeX
+      - name: Build website on Windows
         shell: pwsh
         run: |
-          $installed = $false
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            choco install miktex --yes --no-progress --force
-            if ($LASTEXITCODE -eq 0) {
-              $installed = $true
-              break
-            }
-            if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
-          }
-          if (-not $installed) { throw 'MiKTeX installation failed after three attempts.' }
-
-      - name: Initialize MiKTeX packages
-        shell: pwsh
-        run: |
-          $miktexBin = 'C:\Program Files\MiKTeX\miktex\bin\x64'
-          if (Test-Path -LiteralPath $miktexBin) { $env:Path = "$miktexBin;$env:Path" }
-          $initialized = $false
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            initexmf --admin --update-fndb
-            initexmf --admin --set-config-value '[MPM]AutoInstall=1'
-            mpm --admin --update-db
-            mpm --admin --install=ctex
-            mpm --admin --install=microtype
-            if ($LASTEXITCODE -eq 0) {
-              $initialized = $true
-              break
-            }
-            if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
-          }
-          if (-not $initialized) { throw 'MiKTeX package initialization failed after three attempts.' }
-
-      - name: Build PDF and website on Windows
-        shell: pwsh
-        run: |
-          $miktexBin = 'C:\Program Files\MiKTeX\miktex\bin\x64'
-          if (Test-Path -LiteralPath $miktexBin) { $env:Path = "$miktexBin;$env:Path" }
           python -m pip install --disable-pip-version-check mkdocs-material pymdown-extensions
-          & .\translation-zh\scripts\build-windows.ps1
+          & .\translation-zh\scripts\build-windows.ps1 -SkipPdf
 
       - name: Upload Pages site from Windows build
         uses: actions/upload-artifact@v4
         with:
           name: pages-site
           path: translation-zh/site
-          if-no-files-found: error
-
-      - name: Upload generated PDF
-        uses: actions/upload-artifact@v4
-        with:
-          name: slam-handbook-zh-pdf
-          path: translation-zh/dist/slam-handbook-zh.pdf
           if-no-files-found: error
 
   deploy-pages:

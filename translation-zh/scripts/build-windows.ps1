@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipSite
+    [switch]$SkipSite,
+    [switch]$SkipPdf
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,45 +35,55 @@ $chapterSources = @(
 if ($chapterSources.Count -eq 0) {
     throw 'No independently reviewed chapter Markdown files were found.'
 }
-$inputFiles = @($chapterSources.FullName)
-$outputFiles = @(
-    $chapterSources | ForEach-Object {
-        Join-Path $translationRoot ("latex\chapters\{0}.tex" -f $_.BaseName)
-    }
-)
-$converter = Join-Path $PSScriptRoot 'md_to_latex.py'
-& $python.Source $converter --input $inputFiles --output $outputFiles --check
-if ($LASTEXITCODE -ne 0) { throw 'Markdown validation failed.' }
-& $python.Source $converter --input $inputFiles --output $outputFiles
-if ($LASTEXITCODE -ne 0) { throw 'Markdown to LaTeX conversion failed.' }
-
-$xelatex = Get-Command xelatex -ErrorAction SilentlyContinue
-if (-not $xelatex) {
-    throw 'XeLaTeX was not found. Install MiKTeX (winget install MiKTeX.MiKTeX) or TeX Live, then restart PowerShell.'
-}
-
-$latexRoot = Join-Path $translationRoot 'latex'
-$chapterInputs = $chapterSources | ForEach-Object {
-    "\input{chapters/$($_.BaseName).tex}"
-}
-Set-Content -LiteralPath (Join-Path $latexRoot 'chapters.tex') -Value $chapterInputs -Encoding utf8
-Push-Location $latexRoot
-try {
-    for ($pass = 1; $pass -le 2; $pass++) {
-        & $xelatex.Source -interaction=nonstopmode -halt-on-error -file-line-error 'main.tex'
-        if ($LASTEXITCODE -ne 0) { throw "XeLaTeX compilation failed on pass $pass." }
-    }
-} finally {
-    Pop-Location
-}
-
-$pdf = Join-Path $latexRoot 'main.pdf'
-if (-not (Test-Path -LiteralPath $pdf)) { throw 'Expected PDF was not generated.' }
 $dist = Join-Path $translationRoot 'dist'
 $assets = Join-Path $translationRoot 'content\assets'
-New-Item -ItemType Directory -Force -Path $dist,$assets | Out-Null
-Copy-Item -LiteralPath $pdf -Destination (Join-Path $dist 'slam-handbook-zh.pdf') -Force
-Copy-Item -LiteralPath $pdf -Destination (Join-Path $assets 'slam-handbook-zh.pdf') -Force
+if (-not $SkipPdf) {
+    $inputFiles = @($chapterSources.FullName)
+    $outputFiles = @(
+        $chapterSources | ForEach-Object {
+            Join-Path $translationRoot ("latex\chapters\{0}.tex" -f $_.BaseName)
+        }
+    )
+    $converter = Join-Path $PSScriptRoot 'md_to_latex.py'
+    & $python.Source $converter --input $inputFiles --output $outputFiles --check
+    if ($LASTEXITCODE -ne 0) { throw 'Markdown validation failed.' }
+    & $python.Source $converter --input $inputFiles --output $outputFiles
+    if ($LASTEXITCODE -ne 0) { throw 'Markdown to LaTeX conversion failed.' }
+
+    $xelatex = Get-Command xelatex -ErrorAction SilentlyContinue
+    if (-not $xelatex) {
+        throw 'XeLaTeX was not found. Install MiKTeX (winget install MiKTeX.MiKTeX) or TeX Live, then restart PowerShell.'
+    }
+
+    $latexRoot = Join-Path $translationRoot 'latex'
+    $chapterInputs = $chapterSources | ForEach-Object {
+        "\input{chapters/$($_.BaseName).tex}"
+    }
+    Set-Content -LiteralPath (Join-Path $latexRoot 'chapters.tex') -Value $chapterInputs -Encoding utf8
+    Push-Location $latexRoot
+    try {
+        for ($pass = 1; $pass -le 2; $pass++) {
+            & $xelatex.Source -interaction=nonstopmode -halt-on-error -file-line-error 'main.tex'
+            if ($LASTEXITCODE -ne 0) { throw "XeLaTeX compilation failed on pass $pass." }
+        }
+    } finally {
+        Pop-Location
+    }
+
+    $pdf = Join-Path $latexRoot 'main.pdf'
+    if (-not (Test-Path -LiteralPath $pdf)) { throw 'Expected PDF was not generated.' }
+    New-Item -ItemType Directory -Force -Path $dist | Out-Null
+    Copy-Item -LiteralPath $pdf -Destination (Join-Path $dist 'slam-handbook-zh.pdf') -Force
+}
+
+# Pages builds reuse the reviewed PDF committed under dist, so website fixes do
+# not depend on a transient MiKTeX installation on the hosted runner.
+$publishedPdf = Join-Path $dist 'slam-handbook-zh.pdf'
+if (-not (Test-Path -LiteralPath $publishedPdf)) {
+    throw "Published PDF was not found: $publishedPdf"
+}
+New-Item -ItemType Directory -Force -Path $assets | Out-Null
+Copy-Item -LiteralPath $publishedPdf -Destination (Join-Path $assets 'slam-handbook-zh.pdf') -Force
 
 if (-not $SkipSite) {
     $mkdocs = Get-Command mkdocs -ErrorAction SilentlyContinue
