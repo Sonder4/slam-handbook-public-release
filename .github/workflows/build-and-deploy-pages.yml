@@ -42,11 +42,20 @@ jobs:
         run: |
           $miktexBin = 'C:\Program Files\MiKTeX\miktex\bin\x64'
           if (Test-Path -LiteralPath $miktexBin) { $env:Path = "$miktexBin;$env:Path" }
-          initexmf --admin --update-fndb
-          initexmf --admin --set-config-value '[MPM]AutoInstall=1'
-          mpm --admin --update-db
-          mpm --admin --install=ctex
-          mpm --admin --install=microtype
+          $initialized = $false
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            initexmf --admin --update-fndb
+            initexmf --admin --set-config-value '[MPM]AutoInstall=1'
+            mpm --admin --update-db
+            mpm --admin --install=ctex
+            mpm --admin --install=microtype
+            if ($LASTEXITCODE -eq 0) {
+              $initialized = $true
+              break
+            }
+            if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
+          }
+          if (-not $initialized) { throw 'MiKTeX package initialization failed after three attempts.' }
 
       - name: Build PDF and website on Windows
         shell: pwsh
