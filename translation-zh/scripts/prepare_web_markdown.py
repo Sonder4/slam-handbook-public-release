@@ -456,6 +456,11 @@ def transform_english_chapter(lines: list[str], chapter_number: str) -> str:
         body = body[1:]
     if body and body[0].strip() == authors:
         body = body[1:]
+    # Repair unambiguous superscript artifacts introduced by PDF extraction.
+    body = [
+        re.sub(r"\$\^\s*\{\s*([xb])\s*,?\s*\}\$", r"$\\boldsymbol{\1}$", line)
+        for line in body
+    ]
     local_figures: set[str] = set()
     for image_index, line in enumerate(body):
         if not IMAGE_RE.match(line.strip()):

@@ -42,9 +42,12 @@
     let syncFrame;
     let syncMonitor;
     let syncingPane;
+    let syncLockUntil = 0;
+    let activeScrollSource = "zh";
     let lastChineseTop = 0;
     let lastEnglishTop = 0;
     let savedPageTop = 0;
+    let readerToolbar;
 
     const scrollRange = (element) => Math.max(0, element.scrollHeight - element.clientHeight);
 
@@ -67,7 +70,6 @@
       englishPane = document.createElement("section");
       englishPane.className = "bilingual-reader-pane bilingual-reader-pane--english";
       englishPane.lang = "en";
-      englishPane.innerHTML = '<h2 class="bilingual-reader-heading">English original</h2>';
       layout.append(chinesePane, englishPane);
       content.appendChild(layout);
     }
@@ -77,24 +79,98 @@
         document.body.classList.contains("bilingual-reader-page");
     }
 
+    function anchorPositions(root, scroller) {
+      const scrollerTop = scroller === root.scrollingElement
+        ? 0
+        : scroller.getBoundingClientRect().top;
+      const seen = new Set();
+      return [...root.querySelectorAll(".equation-anchor[id], .figure-anchor[id]")]
+        .filter((element) => {
+          if (
+            (!element.id.startsWith("eq-") && !element.id.startsWith("fig-")) ||
+            seen.has(element.id)
+          ) return false;
+          seen.add(element.id);
+          return true;
+        })
+        .map((element) => ({
+          id: element.id,
+          top: element.getBoundingClientRect().top - scrollerTop + scroller.scrollTop
+        }))
+        .sort((a, b) => a.top - b.top);
+    }
+
+    function synchronizedTop(source, target, sourceDocument, targetDocument) {
+      const sourceRange = scrollRange(source);
+      const targetRange = scrollRange(target);
+      if (!sourceRange || !targetRange) return 0;
+      const targetAnchors = new Map();
+      anchorPositions(targetDocument, target).forEach((anchor) => {
+        if (!targetAnchors.has(anchor.id)) targetAnchors.set(anchor.id, anchor.top);
+      });
+      const rawPairs = anchorPositions(sourceDocument, source)
+        .filter((anchor) => targetAnchors.has(anchor.id))
+        .map((anchor) => {
+          const sourceMargin = parseFloat(
+            sourceDocument.defaultView.getComputedStyle(
+              sourceDocument.getElementById(anchor.id)
+            ).scrollMarginTop
+          ) || 0;
+          const targetMargin = parseFloat(
+            targetDocument.defaultView.getComputedStyle(
+              targetDocument.getElementById(anchor.id)
+            ).scrollMarginTop
+          ) || 0;
+          return {
+            source: Math.max(0, anchor.top - sourceMargin),
+            target: Math.max(0, targetAnchors.get(anchor.id) - targetMargin)
+          };
+        })
+        .filter((pair) => pair.source >= 0 && pair.target >= 0);
+      const pairs = rawPairs.filter((pair, index) => {
+        if (!index) return true;
+        const previous = rawPairs[index - 1];
+        return pair.source > previous.source && pair.target > previous.target;
+      });
+      const points = [];
+      [{ source: 0, target: 0 }, ...pairs, {
+        source: sourceRange,
+        target: targetRange
+      }].forEach((point) => {
+        const previous = points[points.length - 1];
+        if (!previous || (point.source > previous.source && point.target > previous.target)) {
+          points.push(point);
+        }
+      });
+      const current = source.scrollTop;
+      let upperIndex = points.findIndex((point) => point.source > current);
+      if (upperIndex < 0) upperIndex = points.length - 1;
+      const lower = points[Math.max(0, upperIndex - 1)];
+      const upper = points[upperIndex];
+      const span = Math.max(1, upper.source - lower.source);
+      const progress = Math.min(1, Math.max(0, (current - lower.source) / span));
+      return lower.target + progress * (upper.target - lower.target);
+    }
+
     function syncScroll(source) {
       if (!readerIsActive() || !frame?.contentDocument || !chinesePane) return;
       const englishScroller = frame.contentDocument.scrollingElement;
       const from = source === "zh" ? chinesePane : englishScroller;
       const to = source === "zh" ? englishScroller : chinesePane;
-      const fromRange = scrollRange(from);
-      const ratio = fromRange > 0 ? from.scrollTop / fromRange : 0;
+      const fromDocument = source === "zh" ? document : frame.contentDocument;
+      const toDocument = source === "zh" ? frame.contentDocument : document;
       syncingPane = source === "zh" ? "en" : "zh";
-      to.scrollTop = ratio * scrollRange(to);
+      syncLockUntil = performance.now() + 160;
+      to.scrollTop = synchronizedTop(from, to, fromDocument, toDocument);
       lastChineseTop = chinesePane.scrollTop;
       lastEnglishTop = englishScroller.scrollTop;
-      requestAnimationFrame(() => {
-        if (syncingPane === (source === "zh" ? "en" : "zh")) syncingPane = undefined;
-      });
+      window.setTimeout(() => {
+        if (performance.now() >= syncLockUntil) syncingPane = undefined;
+      }, 180);
     }
 
     function syncFromChinese() {
-      if (syncingPane === "zh") return;
+      if (syncingPane === "zh" || activeScrollSource !== "zh") return;
       cancelAnimationFrame(syncFrame);
       syncFrame = requestAnimationFrame(() => syncScroll("zh"));
     }
@@ -107,9 +183,21 @@
         if (!englishScroller) return;
         const chineseChanged = Math.abs(chinesePane.scrollTop - lastChineseTop) > 0.5;
         const englishChanged = Math.abs(englishScroller.scrollTop - lastEnglishTop) > 0.5;
-        if (englishChanged && !chineseChanged && syncingPane !== "en") {
+        if (
+          englishChanged &&
+          !chineseChanged &&
+          syncingPane !== "en" &&
+          performance.now() >= syncLockUntil &&
+          activeScrollSource === "en"
+        ) {
           syncScroll("en");
-        } else if (chineseChanged && !englishChanged && syncingPane !== "zh") {
+        } else if (
+          chineseChanged &&
+          !englishChanged &&
+          syncingPane !== "zh" &&
+          performance.now() >= syncLockUntil &&
+          activeScrollSource === "zh"
+        ) {
           syncScroll("zh");
         }
         lastChineseTop = chinesePane.scrollTop;
@@ -123,8 +211,21 @@
       if (!scroller) return;
       frameController?.abort();
       frameController = new AbortController();
+      frame.contentDocument.addEventListener("wheel", () => {
+        activeScrollSource = "en";
+      }, { passive: true, signal: frameController.signal });
+      frame.contentDocument.addEventListener("pointerdown", () => {
+        activeScrollSource = "en";
+      }, { passive: true, signal: frameController.signal });
+      frame.contentDocument.addEventListener("keydown", () => {
+        activeScrollSource = "en";
+      }, { signal: frameController.signal });
       frame.contentWindow.addEventListener("scroll", () => {
-        if (syncingPane !== "en") {
+        if (
+          syncingPane !== "en" &&
+          performance.now() >= syncLockUntil &&
+          activeScrollSource === "en"
+        ) {
           syncScroll("en");
         }
       }, { passive: true, signal: frameController.signal });
@@ -134,9 +235,7 @@
 
     function updateReaderHeight() {
       if (!readerIsActive() || !layout) return;
-      const top = Math.max(0, layout.getBoundingClientRect().top);
-      const available = Math.max(320, window.innerHeight - top - 12);
-      layout.style.setProperty("--bilingual-reader-height", `${available}px`);
+      layout.style.removeProperty("--bilingual-reader-height");
     }
 
     function openReader(initialProgress) {
@@ -150,6 +249,19 @@
       );
       toggle.setAttribute("aria-expanded", "true");
       toggle.textContent = "关闭中英对照";
+      document.documentElement.requestFullscreen?.().catch(() => {});
+
+      if (!readerToolbar) {
+        readerToolbar = document.createElement("header");
+        readerToolbar.className = "bilingual-reader-toolbar";
+        readerToolbar.innerHTML = [
+          '<strong lang="zh-CN">中文译文</strong>',
+          '<strong lang="en">English original</strong>',
+          '<button type="button" class="bilingual-reader-close" aria-label="关闭中英对照">×</button>'
+        ].join("");
+        readerToolbar.querySelector("button").addEventListener("click", closeReader, { signal });
+        layout.before(readerToolbar);
+      }
 
       if (!frame) {
         frame = document.createElement("iframe");
@@ -180,6 +292,7 @@
       document.documentElement.classList.remove("bilingual-reader-active");
       toggle.setAttribute("aria-expanded", "false");
       toggle.textContent = "中英对照阅读";
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
       requestAnimationFrame(() => {
         const page = document.scrollingElement;
         if (!page) return;
@@ -198,6 +311,15 @@
         if (!chinesePane.dataset.bilingualBound) {
           chinesePane.dataset.bilingualBound = "true";
           chinesePane.addEventListener("scroll", syncFromChinese, { passive: true, signal });
+          chinesePane.addEventListener("wheel", () => {
+            activeScrollSource = "zh";
+          }, { passive: true, signal });
+          chinesePane.addEventListener("pointerdown", () => {
+            activeScrollSource = "zh";
+          }, { passive: true, signal });
+          chinesePane.addEventListener("keydown", () => {
+            activeScrollSource = "zh";
+          }, { signal });
         }
         openReader(initialProgress);
       } else {

@@ -20,7 +20,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 也可以只生成 PDF 而跳过网站：`.\scripts\build-windows.ps1 -SkipSite`。GitHub Actions 使用相同的 Windows 构建脚本，并在独立的 Pages 部署任务中发布静态站点。
 
-网站为每个中文章节提供对应的 English original 页面和中英对照阅读页。对照页会在同一页面并列显示中文译文和英文原文，并按滚动进度同步；两个单语版本也可相互跳转。桌面端左右导航栏固定贴边、宽度稳定，并可独立收起；正文保留段落边界、首行缩进、图注和公式排版。翻译与审查规则见 `REQUIREMENTS.md`，术语统一规则见 `GLOSSARY.md`。
+网站为每个中文章节提供对应的 English original 页面和中英对照阅读模式。桌面端对照模式使用全视口阅读层，并按共有公式/图片锚点同步左右正文；窄屏设备采用上下排列。两个单语版本也可相互跳转。站点内置 MathJax 运行时和字体，不依赖公共 CDN 才能显示公式。桌面端左右导航栏固定贴边、宽度稳定，并可独立收起；正文保留段落边界、首行缩进、图注和公式排版。翻译与审查规则见 `REQUIREMENTS.md`，术语统一规则见 `GLOSSARY.md`。
 
 同步英文提取源：
 
